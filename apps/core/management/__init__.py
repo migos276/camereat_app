@@ -1,0 +1,2 @@
+# Core management command init
+
