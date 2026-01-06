@@ -24,13 +24,33 @@ class IsApproved(BasePermission):
         if user.user_type == 'LIVREUR':
             try:
                 # Try to access the livreur profile to verify it exists
-                if hasattr(user, 'livreur'):
+                if hasattr(user, 'livreur') and user.livreur:
                     if not user.livreur.is_active:
                         self.message = {
                             'error': 'account_inactive',
                             'detail': 'Votre compte de livreur est désactivé. Veuillez contacter le support.',
                             'code': 'account_inactive',
                             'status': 'INACTIVE'
+                        }
+                        return False
+                    
+                    # Check approval status after confirming profile exists and is active
+                    if user.is_approved is True:
+                        return True
+                    elif user.is_approved is False:
+                        self.message = {
+                            'error': 'not_approved',
+                            'detail': 'Votre compte a été rejeté. Veuillez contacter le support pour plus d\'informations.',
+                            'code': 'rejected',
+                            'status': 'REJETE'
+                        }
+                        return False
+                    else:  # is_approved is None (pending)
+                        self.message = {
+                            'error': 'pending_approval',
+                            'detail': 'Votre demande d\'approbation est en cours de traitement. Vous recevrez une notification une fois votre compte approuvé.',
+                            'code': 'pending',
+                            'status': 'EN_ATTENTE'
                         }
                         return False
                 else:
@@ -42,7 +62,7 @@ class IsApproved(BasePermission):
                         'status': 'NOT_FOUND'
                     }
                     return False
-            except Exception:
+            except Exception as e:
                 self.message = {
                     'error': 'profile_not_found',
                     'detail': 'Profil livreur non trouvé. Veuillez compléter votre inscription.',
@@ -81,7 +101,7 @@ class IsApproved(BasePermission):
                 }
                 return False
         
-        # Check approval status
+        # Check approval status for other user types
         if user.is_approved is True:
             return True
         elif user.is_approved is False:

@@ -31,6 +31,8 @@ export const ENDPOINTS = {
   RESTAURANTS_MENU: (id: string) => `restaurants/${id}/menu/`,
   RESTAURANTS_PRODUCTS: (id: string) => `restaurants/${id}/products/`,
   RESTAURANTS_RATINGS: (id: string) => `restaurants/${id}/ratings/`,
+  RESTAURANTS_DASHBOARD_STATS: "restaurants/dashboard_stats/",
+  RESTAURANTS_RECENT_ORDERS: "restaurants/recent_orders/",
 
   // Supermarkets (under api/supermarches/)
   SUPERMARKETS_LIST: "supermarkets/",
@@ -65,8 +67,10 @@ export const ENDPOINTS = {
   LIVREURS_ACCEPT_DELIVERY: (id: string) => `livreurs/accepter_commande/`,
   LIVREURS_REJECT_DELIVERY: (id: string) => `livreurs/rejeter_commande/`,
   LIVREURS_UPDATE_POSITION: "livreurs/update_position/",
+  LIVREURS_UPDATE_STATUS: "livreurs/update_status/",
   LIVREURS_DELIVERY_STATUS: (id: string) => `livreurs/update_status/`,
   LIVREURS_STATS: "livreurs/statistiques/",
+  LIVREURS_EARNINGS: "livreurs/revenus/",
 
   // Deliveries (under api/deliveries/)
   DELIVERIES_LIST: "deliveries/",

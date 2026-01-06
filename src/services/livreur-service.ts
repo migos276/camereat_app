@@ -54,4 +54,14 @@ export const livreurService = {
     const response = await api.get(ENDPOINTS.LIVREURS_STATS)
     return response.data
   },
+
+  async getEarnings(): Promise<any> {
+    const response = await api.get(ENDPOINTS.LIVREURS_EARNINGS)
+    return response.data
+  },
+
+  async updateOnlineStatus(status: string): Promise<any> {
+    const response = await api.put(ENDPOINTS.LIVREURS_UPDATE_STATUS, { status })
+    return response.data
+  },
 }

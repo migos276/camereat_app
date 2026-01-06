@@ -61,7 +61,15 @@ class AxiosService {
     // Intercepteur de réponse - gère les erreurs et le refresh token
     this.axiosInstance.interceptors.response.use(
       (response) => {
+        // Logger les données de réponse pour le débogage
+        const responseData = response.data
+        const responseSize = JSON.stringify(responseData).length
         console.log(`[Axios] Réponse ${response.status} pour ${response.config.url}`)
+        console.log(`[Axios] Données de réponse:`, responseData ? `${responseSize} bytes` : "vide/null")
+        if (responseData && typeof responseData === 'object') {
+          // Afficher un résumé des clés pour les objects complexes
+          console.log(`[Axios] Clés de réponse:`, Object.keys(responseData).join(', '))
+        }
         return response
       },
       async (error: AxiosError) => {

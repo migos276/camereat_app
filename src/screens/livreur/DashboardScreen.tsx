@@ -19,55 +19,55 @@ export const DashboardScreen: React.FC<any> = ({ navigation }) => {
               <Badge text="Online" variant="success" />
             </View>
             <TouchableOpacity style={styles.statusToggle}>
-              <MaterialIcons name="toggle-on" size={40} color={COLORS.LIVREUR_PRIMARY} />
+              <MaterialIcons name="toggle-on" size={40} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         </Card>
 
         <View style={styles.statsGrid}>
           <Card style={styles.statCard}>
-<MaterialIcons name="shopping-cart" size={32} color={COLORS.LIVREUR_PRIMARY} style={styles.statIcon} />
+<MaterialIcons name="shopping-cart" size={32} color={COLORS.primary} style={styles.statIcon} />
             <Text style={styles.statValue}>12</Text>
             <Text style={styles.statLabel}>Deliveries Today</Text>
           </Card>
 
           <Card style={styles.statCard}>
-            <MaterialIcons name="attach-money" size={32} color={COLORS.LIVREUR_PRIMARY} style={styles.statIcon} />
+            <MaterialIcons name="attach-money" size={32} color={COLORS.primary} style={styles.statIcon} />
             <Text style={styles.statValue}>$84.50</Text>
             <Text style={styles.statLabel}>Earned Today</Text>
           </Card>
 
           <Card style={styles.statCard}>
-            <MaterialIcons name="star" size={32} color={COLORS.WARNING} style={styles.statIcon} />
+            <MaterialIcons name="star" size={32} color={COLORS.warning} style={styles.statIcon} />
             <Text style={styles.statValue}>4.8</Text>
             <Text style={styles.statLabel}>Your Rating</Text>
           </Card>
 
           <Card style={styles.statCard}>
-            <MaterialIcons name="timer" size={32} color={COLORS.LIVREUR_PRIMARY} style={styles.statIcon} />
+            <MaterialIcons name="timer" size={32} color={COLORS.primary} style={styles.statIcon} />
             <Text style={styles.statValue}>25</Text>
             <Text style={styles.statLabel}>Minutes AVG</Text>
           </Card>
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("AvailableOrders")}>
-          <MaterialIcons name="local-shipping" size={24} color={COLORS.WHITE} style={styles.buttonIcon} />
+          <MaterialIcons name="local-shipping" size={24} color={COLORS.white} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Available Orders</Text>
-          <MaterialIcons name="chevron-right" size={24} color={COLORS.WHITE} />
+          <MaterialIcons name="chevron-right" size={24} color={COLORS.white} />
         </TouchableOpacity>
 
         <Card style={styles.quickActionsCard}>
           <Text style={styles.quickActionsTitle}>Quick Actions</Text>
           <TouchableOpacity style={styles.quickAction}>
-            <MaterialIcons name="history" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <MaterialIcons name="history" size={20} color={COLORS.primary} />
             <Text style={styles.quickActionText}>View History</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction}>
-            <MaterialIcons name="trending-up" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <MaterialIcons name="trending-up" size={20} color={COLORS.primary} />
             <Text style={styles.quickActionText}>View Earnings</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction}>
-            <MaterialIcons name="description" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <MaterialIcons name="description" size={20} color={COLORS.primary} />
             <Text style={styles.quickActionText}>Documents Status</Text>
           </TouchableOpacity>
         </Card>
@@ -79,7 +79,7 @@ export const DashboardScreen: React.FC<any> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: COLORS.background,
   },
   content: {
     padding: 16,
@@ -98,8 +98,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statusLabel: {
-    ...TYPOGRAPHY.body2,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.secondary,
     marginBottom: 6,
   },
   statusToggle: {
@@ -120,19 +120,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statValue: {
-    ...TYPOGRAPHY.heading3,
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: "700",
     marginBottom: 2,
   },
   statLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: "400",
+    color: COLORS.secondary,
     textAlign: "center",
   },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.LIVREUR_PRIMARY,
+    backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -143,8 +144,8 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   buttonText: {
-    ...TYPOGRAPHY.heading3,
-    color: COLORS.WHITE,
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    color: COLORS.white,
     fontWeight: "700",
     flex: 1,
   },
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   quickActionsTitle: {
-    ...TYPOGRAPHY.heading3,
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: "700",
     marginBottom: 12,
   },
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quickActionText: {
-    ...TYPOGRAPHY.body1,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: "600",
     flex: 1,
   },

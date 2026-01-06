@@ -49,6 +49,7 @@ class Commande(models.Model):
     products_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     platform_commission = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    livreur_earnings = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_MODE_CHOICES, default='ESPECES')

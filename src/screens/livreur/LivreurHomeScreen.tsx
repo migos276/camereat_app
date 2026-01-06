@@ -7,7 +7,7 @@ import { MaterialIcons } from "@expo/vector-icons"
 import type { LivreurStackParamList } from "../../navigation/LivreurNavigator"
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/config"
 import { useAppDispatch, useAppSelector } from "../../hooks"
-import { getLivreurProfile, getStatistics, setOnlineStatus } from "../../redux/slices/livreurSlice"
+import { getLivreurProfile, getStatistics, updateOnlineStatus } from "../../redux/slices/livreurSlice"
 
 type Props = {
   navigation: CompositeNavigationProp<any, any>
@@ -23,14 +23,15 @@ const LivreurHomeScreen: React.FC<Props> = ({ navigation }) => {
   }, [dispatch])
 
   const toggleOnlineStatus = () => {
-    dispatch(setOnlineStatus(!isOnline))
+    // Toggle the status and call the backend
+    dispatch(updateOnlineStatus(!isOnline))
   }
 
   const quickStats = [
-    { id: "1", icon: "shopping-cart", value: statistics?.deliveries_today || "0", label: "Deliveries Today" },
-    { id: "2", icon: "attach-money", value: `$${statistics?.earnings_today || "0.00"}`, label: "Earned Today" },
+    { id: "1", icon: "shopping-cart", value: statistics?.deliveries_today?.toString() || "0", label: "Deliveries Today" },
+    { id: "2", icon: "attach-money", value: `$${statistics?.earnings_today?.toFixed(2) || "0.00"}`, label: "Earned Today" },
     { id: "3", icon: "star", value: profile?.average_rating?.toFixed(1) || "N/A", label: "Your Rating" },
-    { id: "4", icon: "timer", value: "N/A", label: "Minutes AVG" },
+    { id: "4", icon: "timer", value: statistics?.average_delivery_time?.toString() || "N/A", label: "Minutes AVG" },
   ]
 
   if (isLoading && !profile) {

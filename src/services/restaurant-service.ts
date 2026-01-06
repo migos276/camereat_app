@@ -1,6 +1,6 @@
 import axiosService from "./axios-instance"
 import { ENDPOINTS } from "../constants/endpoints"
-import type { Restaurant, Product } from "../types"
+import type { Restaurant, Product, RestaurantDashboardStats, RestaurantOrder } from "../types"
 
 const api = axiosService.getInstance()
 
@@ -141,6 +141,16 @@ export const restaurantService = {
 
   async getRatings(id: string): Promise<any> {
     const response = await api.get(ENDPOINTS.RESTAURANTS_RATINGS(id))
+    return response.data
+  },
+
+  async getDashboardStats(): Promise<RestaurantDashboardStats> {
+    const response = await api.get<RestaurantDashboardStats>(ENDPOINTS.RESTAURANTS_DASHBOARD_STATS)
+    return response.data
+  },
+
+  async getRecentOrders(): Promise<RestaurantOrder[]> {
+    const response = await api.get<RestaurantOrder[]>(ENDPOINTS.RESTAURANTS_RECENT_ORDERS)
     return response.data
   },
 }

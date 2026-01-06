@@ -157,3 +157,88 @@ class RestaurantViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    def dashboard_stats(self, request):
+        """Get restaurant dashboard statistics"""
+        try:
+            restaurant = request.user.restaurant
+            from django.utils import timezone
+            from django.db.models import Count, Sum, Avg
+            from datetime import timedelta
+            from apps.orders.models import Commande
+            
+            today = timezone.now().date()
+            today_start = timezone.make_aware(
+                timezone.datetime.combine(today, timezone.datetime.min.time())
+            )
+            
+            # Today's orders count
+            today_orders_count = Commande.objects.filter(
+                restaurant=restaurant,
+                date_created__gte=today_start
+            ).count()
+            
+            # Pending orders (not delivered or cancelled)
+            pending_orders_count = Commande.objects.filter(
+                restaurant=restaurant
+            ).exclude(
+                status__in=['LIVREE', 'ANNULEE', 'REFUSEE']
+            ).count()
+            
+            # Today's revenue (completed orders)
+            today_revenue = Commande.objects.filter(
+                restaurant=restaurant,
+                date_created__gte=today_start,
+                status='LIVREE'
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            
+            # Average preparation time from completed orders in last 7 days
+            last_week = today_start - timedelta(days=7)
+            avg_prep_time = Commande.objects.filter(
+                restaurant=restaurant,
+                date_created__gte=last_week,
+                date_accepted__isnull=False,
+                date_preparation__isnull=False
+            ).annotate(
+                prep_time=Avg(
+                    expression=timezone.datetime.fromisoformat(
+                        str(date_preparation) - str(date_accepted)
+                    ) if False else 0
+                )
+            ).aggregate(avg=Avg('estimated_duration_minutes'))['avg'] or restaurant.avg_preparation_time
+            
+            return Response({
+                'today_orders': today_orders_count,
+                'pending_orders': pending_orders_count,
+                'revenue': float(today_revenue),
+                'avg_preparation_time': int(avg_prep_time),
+                'restaurant_name': restaurant.commercial_name,
+            })
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(f"[RESTAURANTS] Error getting dashboard stats: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    def recent_orders(self, request):
+        """Get recent orders for the restaurant"""
+        try:
+            restaurant = request.user.restaurant
+            from django.utils import timezone
+            from apps.orders.models import Commande
+            from apps.orders.serializers import CommandeDetailSerializer
+            
+            # Get last 10 orders
+            orders = Commande.objects.filter(
+                restaurant=restaurant
+            ).order_by('-date_created')[:10]
+            
+            serializer = CommandeDetailSerializer(orders, many=True)
+            return Response(serializer.data)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(f"[RESTAURANTS] Error getting recent orders: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

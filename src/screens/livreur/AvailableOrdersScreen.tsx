@@ -90,10 +90,21 @@ export const AvailableOrdersScreen: React.FC<any> = ({ navigation }) => {
         break
 
       case "PENDING_APPROVAL":
+      case "pending_approval":
+        // Show a more informative alert for pending approval
         Alert.alert(
           "En attente d'approbation",
-          detail + "\n\nStatut: EN_ATTENTE",
-          [{ text: "OK" }]
+          detail + "\n\nVotre compte est en cours de vérification par notre équipe. Vous recevrez une notification une fois votre compte approuvé et pourrez alors accéder aux commandes disponibles.",
+          [
+            { 
+              text: "Voir mon profil", 
+              onPress: () => navigation.navigate("LivreurProfile") 
+            },
+            { 
+              text: "OK", 
+              style: "default" 
+            }
+          ]
         )
         break
 
@@ -280,7 +291,7 @@ const styles = StyleSheet.create({
   },
   restaurantName: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: TYPOGRAPHY.fontWeight.bold as any,
     marginBottom: SPACING.xs,
     color: LIVREUR_COLORS.TEXT_PRIMARY,
   },
@@ -305,7 +316,7 @@ const styles = StyleSheet.create({
   },
   payAmount: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: TYPOGRAPHY.fontWeight.bold as any,
     color: LIVREUR_COLORS.WHITE,
   },
   clientInfo: {
@@ -343,7 +354,7 @@ const styles = StyleSheet.create({
   },
   acceptButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
     color: LIVREUR_COLORS.WHITE,
   },
   emptyContainer: {
@@ -355,7 +366,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: TYPOGRAPHY.fontWeight.bold as any,
     color: LIVREUR_COLORS.TEXT_SECONDARY,
     marginTop: SPACING.lg,
     marginBottom: SPACING.sm,
@@ -384,7 +395,7 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
     color: LIVREUR_COLORS.WHITE,
   },
 })

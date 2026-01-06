@@ -8,6 +8,7 @@ interface LivreurState {
   activeDelivery: Delivery | null
   deliveryHistory: Delivery[]
   statistics: any | null
+  earnings: any | null
   isLoading: boolean
   error: string | null
   isOnline: boolean
@@ -20,6 +21,7 @@ const initialState: LivreurState = {
   activeDelivery: null,
   deliveryHistory: [],
   statistics: null,
+  earnings: null,
   isLoading: false,
   error: null,
   isOnline: false,
@@ -98,12 +100,12 @@ export const getAvailableDeliveries = createAsyncThunk(
             code: 'ACCOUNT_INACTIVE'
           })
         }
-        if (errorData.code === 'pending') {
+        if (errorData.code === 'pending' || errorData.code === 'pending_approval') {
           return rejectWithValue({
             error: 'pending_approval',
-            detail: errorData.detail || 'Votre compte est en attente d\'approbation.',
+            detail: errorData.detail || 'Votre compte est en attente d\'approbation. Vous recevrez une notification une fois votre compte approuvé.',
             code: 'PENDING_APPROVAL',
-            status: errorData.status
+            status: errorData.status || 'EN_ATTENTE'
           })
         }
         if (errorData.code === 'rejected') {
@@ -112,6 +114,14 @@ export const getAvailableDeliveries = createAsyncThunk(
             detail: errorData.detail || 'Votre compte a été rejeté.',
             code: 'REJECTED',
             status: errorData.status
+          })
+        }
+        if (errorData.error === 'pending_approval') {
+          return rejectWithValue({
+            error: 'pending_approval',
+            detail: errorData.detail || 'Votre compte est en attente d\'approbation. Vous recevrez une notification une fois votre compte approuvé.',
+            code: 'PENDING_APPROVAL',
+            status: errorData.status || 'EN_ATTENTE'
           })
         }
       }
@@ -198,6 +208,41 @@ export const getStatistics = createAsyncThunk(
   },
 )
 
+// <CHANGE> Async thunk for earnings
+export const getEarnings = createAsyncThunk(
+  "livreur/getEarnings",
+  async (_, { rejectWithValue }) => {
+    console.log("[livreurSlice] Début de getEarnings()")
+    try {
+      const result = await livreurService.getEarnings()
+      console.log("[livreurSlice] getEarnings() succès:", {
+        total_earnings_week: result?.total_earnings_week,
+        deliveries_week: result?.deliveries_week,
+        daily_breakdown_count: result?.daily_breakdown?.length
+      })
+      return result
+    } catch (error: any) {
+      console.error("[livreurSlice] getEarnings() erreur:", error)
+      return rejectWithValue(error.response?.data || "Failed to fetch earnings")
+    }
+  },
+)
+
+// <CHANGE> Async thunk for updating online status
+export const updateOnlineStatus = createAsyncThunk(
+  "livreur/updateOnlineStatus",
+  async (isOnline: boolean, { rejectWithValue }) => {
+    try {
+      // Map boolean to backend status values
+      const status = isOnline ? "EN_LIGNE" : "HORS_LIGNE"
+      const response = await livreurService.updateOnlineStatus(status)
+      return response.status
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "Failed to update status")
+    }
+  },
+)
+
 const livreurSlice = createSlice({
   name: "livreur",
   initialState,
@@ -226,6 +271,10 @@ const livreurSlice = createSlice({
       .addCase(getLivreurProfile.fulfilled, (state, action) => {
         state.isLoading = false
         state.profile = action.payload
+        // Sync isOnline with profile status when profile is loaded
+        if (action.payload.status) {
+          state.isOnline = action.payload.status === "EN_LIGNE"
+        }
       })
       .addCase(getLivreurProfile.rejected, (state, action) => {
         state.isLoading = false
@@ -302,6 +351,35 @@ const livreurSlice = createSlice({
         state.statistics = action.payload
       })
       .addCase(getStatistics.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+      // <CHANGE> Handle earnings
+      .addCase(getEarnings.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(getEarnings.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.earnings = action.payload
+      })
+      .addCase(getEarnings.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+      // <CHANGE> Handle online status update
+      .addCase(updateOnlineStatus.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(updateOnlineStatus.fulfilled, (state, action) => {
+        state.isLoading = false
+        // Update isOnline based on backend response
+        state.isOnline = action.payload === "EN_LIGNE"
+        // Also update profile status
+        if (state.profile) {
+          state.profile.status = action.payload
+        }
+      })
+      .addCase(updateOnlineStatus.rejected, (state, action) => {
         state.isLoading = false
         state.error = action.payload as string
       })

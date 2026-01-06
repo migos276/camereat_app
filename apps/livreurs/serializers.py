@@ -66,3 +66,49 @@ class StatistiquesLivreurSerializer(serializers.ModelSerializer):
             'active_time_minutes', 'average_rating_period'
         ]
         read_only_fields = fields
+
+class DailyEarningsSerializer(serializers.Serializer):
+    """Serializer for daily earnings breakdown"""
+    date = serializers.DateField()
+    day_name = serializers.CharField()
+    earnings = serializers.DecimalField(max_digits=10, decimal_places=2)
+    deliveries = serializers.IntegerField()
+
+class RevenusLivreurSerializer(serializers.Serializer):
+    """Serializer for delivery person earnings"""
+    total_earnings_week = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_earnings_month = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
+    deliveries_week = serializers.IntegerField(default=0)
+    bonuses = serializers.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    daily_breakdown = DailyEarningsSerializer(many=True, default=[])
+    
+    weekly_goal = serializers.IntegerField(default=25)
+    weekly_goal_progress = serializers.FloatField(default=0)
+    
+    average_rating = serializers.DecimalField(max_digits=3, decimal_places=2, default=4.5)
+    average_delivery_time = serializers.IntegerField(default=22)  # in minutes
+    completion_rate = serializers.FloatField(default=0.95)
+    
+    def to_internal_value(self, data):
+        """Ensure all fields have defaults when data is missing"""
+        if not data or not isinstance(data, dict):
+            return {
+                'total_earnings_week': 0,
+                'total_earnings_month': 0,
+                'deliveries_week': 0,
+                'bonuses': 0,
+                'daily_breakdown': [],
+                'weekly_goal': 25,
+                'weekly_goal_progress': 0,
+                'average_rating': 4.5,
+                'average_delivery_time': 22,
+                'completion_rate': 0.95
+            }
+        return super().to_internal_value(data)
+    
+    def validate(self, attrs):
+        """Validate and ensure all required fields exist"""
+        if not attrs.get('daily_breakdown'):
+            attrs['daily_breakdown'] = []
+        return attrs

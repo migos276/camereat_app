@@ -131,6 +131,28 @@ export interface Order {
   updated_at?: string
 }
 
+export interface RestaurantDashboardStats {
+  today_orders: number
+  pending_orders: number
+  revenue: number
+  avg_preparation_time: number
+  restaurant_name: string
+}
+
+export interface RestaurantOrder {
+  id: string
+  numero: string
+  status: string
+  restaurant_name?: string
+  client_name?: string
+  delivery_address_text: string
+  total_amount: number
+  items_count?: number
+  date_created: string
+  payment_mode: string
+  payment_status: string
+}
+
 export interface Delivery {
   id: string
   order: Order
