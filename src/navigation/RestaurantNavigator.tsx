@@ -10,6 +10,7 @@ import OrderDetailScreen from "../screens/restaurant/OrderDetailScreen"
 import { RestaurantMenuScreen as MenuScreen } from "../screens/restaurant/MenuScreen"
 import RestaurantProfileScreen from "../screens/restaurant/RestaurantProfileScreen"
 import AddProductScreen from "../screens/restaurant/AddProductScreen"
+import EditProfileScreen from "../screens/restaurant/EditProfileScreen"
 
 export type RestaurantStackParamList = {
   RestaurantHome: undefined
@@ -18,6 +19,7 @@ export type RestaurantStackParamList = {
   Menu: undefined
   AddProduct: undefined
   RestaurantProfile: undefined
+  EditProfile: undefined
 }
 
 const Stack = createNativeStackNavigator<RestaurantStackParamList>()
@@ -53,6 +55,7 @@ const ProfileStack: React.FC = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: true, headerStyle: { backgroundColor: COLORS.white } }}>
       <Stack.Screen name="RestaurantProfile" component={RestaurantProfileScreen} options={{ headerTitle: "Profile" }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerTitle: "Edit Profile" }} />
     </Stack.Navigator>
   )
 }

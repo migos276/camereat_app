@@ -19,6 +19,7 @@ interface MenuItemData {
   category: string
   description: string
   available: boolean
+  unit?: string
 }
 
 const AddProductScreen: React.FC<Props> = ({ navigation }) => {
@@ -62,8 +63,27 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
       return
     }
 
-    if (!user?.restaurant_id) {
-      Alert.alert("Error", "Restaurant information not found. Please log in again.")
+    // Check if user is authenticated
+    if (!user) {
+      Alert.alert("Error", "Please log in again.")
+      return
+    }
+
+    // Check if user has restaurant owner profile - if not, show helpful message
+    if (user.user_type !== "RESTAURANT") {
+      Alert.alert(
+        "Error",
+        "You need a restaurant account to add products. Please switch to your restaurant account."
+      )
+      return
+    }
+
+    // Check if user has a restaurant profile (restaurant_id is required)
+    if (!user.restaurant_id) {
+      Alert.alert(
+        "Error",
+        "Your restaurant profile is not set up. Please complete your restaurant profile first."
+      )
       return
     }
 
@@ -76,8 +96,8 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
         price: parseFloat(formData.price),
         category: formData.category,
         available: formData.available,
-        restaurant: user.restaurant_id.toString(),
-        unit: "UNITE",
+        unit: formData.unit || "UNITE",
+        restaurant: user.restaurant_id,
       }
 
       await productService.createProduct(productData)
@@ -88,15 +108,31 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
         [
           {
             text: "OK",
-            onPress: () => navigation.goBack(),
+            onPress: () => {
+              // Navigate back to the menu screen
+              navigation.goBack()
+            },
           },
         ]
       )
     } catch (error: any) {
       console.error("Error creating product:", error)
+      let errorMessage = "Failed to create product. Please try again."
+      
+      if (error.response?.data) {
+        // Format validation errors
+        if (typeof error.response.data === 'object') {
+          errorMessage = Object.entries(error.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+            .join('\n')
+        } else if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data
+        }
+      }
+      
       Alert.alert(
         "Error",
-        error.response?.data?.detail || "Failed to create product. Please try again."
+        errorMessage
       )
     } finally {
       setIsLoading(false)

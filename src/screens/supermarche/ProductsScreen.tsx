@@ -6,6 +6,7 @@ import { useState } from "react"
 import { MaterialIcons } from "@expo/vector-icons"
 import { Header, Card, Button } from "../../components"
 import { COLORS, TYPOGRAPHY } from "../../constants/config"
+import { formatPrice } from "../../utils/priceFormatter"
 
 interface Product {
   id: string
@@ -36,7 +37,7 @@ export const SupermarcheProductsScreen: React.FC<any> = ({ navigation }) => {
           <Text style={styles.productName}>{item.name}</Text>
           <Text style={styles.productSku}>SKU: {item.sku}</Text>
         </View>
-        <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.productPrice}>${formatPrice(item.price)}</Text>
       </View>
 
       <View style={styles.productDetails}>

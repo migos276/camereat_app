@@ -1,44 +1,20 @@
-# TODO: Corrections Completed
+# TODO: Fix price.toFixed Error
 
-## ✅ Completed Tasks
+## Completed Tasks
+- [x] Identify screens using price.toFixed(2)
+- [x] Add null checks in frontend screens
+- [x] Modify serializer to ensure price is never null
+- [x] Create formatPrice utility function in src/utils/priceFormatter.ts
+- [x] Update productSlice.ts to normalize price data (convert string to number)
+- [x] Update MenuScreen.tsx to use formatPrice helper
+- [x] Update SupermarketProductsScreen.tsx to use formatPrice helper
+- [x] Update ProductsScreen.tsx (supermarche) to use formatPrice helper
 
-### 1. Seed Data (Backend)
-- ✅ Created `apps/core/management/commands/seed_data.py`
-- ✅ Added test users (clients, restaurants, supermarkets, livreurs)
-- ✅ Added restaurants with products
-- ✅ Added supermarkets with products
-- ✅ Command tested successfully
-
-### 2. TypeScript Types
-- ✅ Types in `src/types/index.ts` already aligned with backend
-
-### 3. Backend Serializers
-- ✅ Updated `apps/restaurants/serializers.py` to include `full_address` and `avg_preparation_time` in list serializer
-
-### 4. Frontend Services
-- ✅ Updated `src/services/restaurant-service.ts` to:
-  - Parse GeoJSON response from nearby restaurants endpoint
-  - Convert string prices to numbers for products
-
-### 5. API Tests Passed
-- ✅ Login endpoint working
-- ✅ Nearby restaurants returning correct data
-- ✅ Restaurant menu returning products with correct structure
-
-## Remaining Tasks (from original plan)
-
-### Navigation Fixes
-- [ ] Fix navigation in `src/screens/supermarche/OrdersScreen.tsx`: Change "OrderDetail" to "SupermarketOrderDetail" and param from { orderId: item.id } to { id: item.id }
-- [ ] Fix logout in `src/screens/supermarket/SupermarketProfileScreen.tsx`: Import useAppDispatch and logout action, dispatch logout instead of console.log
-
-### Frontend Components to Verify
-- [ ] Verify `src/screens/client/HomeScreen.tsx` displays restaurants correctly
-- [ ] Verify `src/screens/client/RestaurantDetailScreen.tsx` displays menu correctly
-- [ ] Verify `src/components/RestaurantCard.tsx` renders all restaurant data
-
-### Additional Fixes (Other TODO files)
-- See TODO_FIX_AddProduct.md
-- See TODO_FIX_NAVIGATION.md
-- See TODO_FIX_LOGIN_400.md
-- See TODO_EDIT_PROFILE_FIX.md
-
+## Details
+- Created `src/utils/priceFormatter.ts` with `formatPrice()` function that safely handles:
+  - null/undefined prices
+  - string prices (converts to number)
+  - invalid number values
+- Updated `src/redux/slices/productSlice.ts` to normalize product prices when receiving from API
+- Updated all screens that display product prices to use `formatPrice()` helper
+- Error "item.price.toFixed is not a function" should now be resolved

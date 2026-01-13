@@ -48,12 +48,68 @@ def create_livreur_profile_safe(user):
             logger.error(f"Error creating livreur profile for user {user.id}: {e}")
 
 
+def create_restaurant_profile_safe(user):
+    """
+    Safely create Restaurant profile for a restaurant user.
+    Creates a basic profile that the user can later update.
+    """
+    from apps.restaurants.models import Restaurant
+    
+    # Create Restaurant profile if it doesn't exist
+    if not hasattr(user, 'restaurant'):
+        try:
+            # Generate default values for required fields
+            commercial_name = user.first_name or "Mon Restaurant"
+            legal_name = f"{commercial_name} SARL"
+            
+            restaurant = Restaurant.objects.create(
+                user=user,
+                commercial_name=commercial_name,
+                legal_name=legal_name,
+                description="À compléter",
+                full_address="À compléter",
+                cuisine_type='AUTRE',
+                price_level='€€',
+            )
+            logger.info(f"Created Restaurant profile for user {user.id}")
+            
+        except Exception as e:
+            logger.error(f"Error creating Restaurant profile for user {user.id}: {e}")
+
+
+def create_supermarche_profile_safe(user):
+    """
+    Safely create Supermarche profile for a supermarche user.
+    Creates a basic profile that the user can later update.
+    """
+    from apps.supermarches.models import Supermarche
+    
+    # Create Supermarche profile if it doesn't exist
+    if not hasattr(user, 'supermarche'):
+        try:
+            # Generate default values for required fields
+            commercial_name = user.first_name or "Mon Supermarché"
+            legal_name = f"{commercial_name} SARL"
+            
+            supermarche = Supermarche.objects.create(
+                user=user,
+                commercial_name=commercial_name,
+                legal_name=legal_name,
+                description="À compléter",
+                full_address="À compléter",
+            )
+            logger.info(f"Created Supermarche profile for user {user.id}")
+            
+        except Exception as e:
+            logger.error(f"Error creating Supermarche profile for user {user.id}: {e}")
+
+
 @receiver(post_save, sender=User)
 def on_user_created(sender, instance, created, **kwargs):
     """
     Signal handler for user creation.
     Sends welcome email, creates initial verification notification,
-    and creates Livreur/StatistiquesLivreur for livreur users.
+    and creates profiles for Livreur, Restaurant, and Supermarche users.
     """
     if created:
         # For non-clients, create initial verification notification
@@ -72,3 +128,11 @@ def on_user_created(sender, instance, created, **kwargs):
         # Auto-create Livreur profile for livreur users
         if instance.user_type == 'LIVREUR':
             create_livreur_profile_safe(instance)
+        
+        # Auto-create Restaurant profile for restaurant users
+        if instance.user_type == 'RESTAURANT':
+            create_restaurant_profile_safe(instance)
+        
+        # Auto-create Supermarche profile for supermarche users
+        if instance.user_type == 'SUPERMARCHE':
+            create_supermarche_profile_safe(instance)

@@ -7,6 +7,7 @@ import { COLORS } from "../constants/config"
 import HomeScreen from "../screens/client/HomeScreen"
 import SearchScreen from "../screens/client/SearchScreen"
 import RestaurantDetailScreen from "../screens/client/RestaurantDetailScreen"
+import RestaurantsMapScreen from "../screens/client/RestaurantsMapScreen"
 import { CartScreen } from "../screens/client/CartScreen"
 import { CheckoutScreen } from "../screens/client/CheckoutScreen"
 import OrdersScreen from "../screens/client/OrdersScreen"
@@ -32,6 +33,7 @@ export type ClientStackParamList = {
   Addresses: undefined
   AddAddress: { address?: import("../types").Address } | undefined
   EditProfile: undefined
+  RestaurantsMap: undefined
 }
 
 const Stack = createNativeStackNavigator<ClientStackParamList>()
@@ -52,6 +54,7 @@ const HomeStack: React.FC = () => {
       }}
     >
       <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="RestaurantsMap" component={RestaurantsMapScreen} options={{ headerTitle: "Map" }} />
       <Stack.Screen name="RestaurantDetail" component={RestaurantDetailScreen} />
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />

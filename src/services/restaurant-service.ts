@@ -153,4 +153,19 @@ export const restaurantService = {
     const response = await api.get<RestaurantOrder[]>(ENDPOINTS.RESTAURANTS_RECENT_ORDERS)
     return response.data
   },
+
+  async getOrders(): Promise<RestaurantOrder[]> {
+    const response = await api.get<RestaurantOrder[]>(ENDPOINTS.RESTAURANTS_ORDERS)
+    return response.data
+  },
+
+  async getMyRestaurant(): Promise<Restaurant> {
+    const response = await api.get<Restaurant>(ENDPOINTS.RESTAURANTS_MY_RESTAURANT)
+    return response.data
+  },
+
+  async updateRestaurantProfile(data: Partial<Restaurant>): Promise<Restaurant> {
+    const response = await api.put<Restaurant>(ENDPOINTS.RESTAURANTS_UPDATE_PROFILE, data)
+    return response.data
+  },
 }

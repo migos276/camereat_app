@@ -137,6 +137,15 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     def my_restaurant(self, request):
         """Get current user's restaurant"""
         try:
+            # Check if user has a restaurant profile
+            if not hasattr(request.user, 'restaurant'):
+                logger.warning(f"[RESTAURANTS] User {request.user.id} does not have a restaurant profile")
+                return Response({
+                    'error': 'Restaurant profile not found',
+                    'message': 'Your restaurant profile has not been created yet. Please complete your profile setup.',
+                    'needs_setup': True
+                }, status=status.HTTP_404_NOT_FOUND)
+            
             restaurant = request.user.restaurant
             serializer = RestaurantDetailSerializer(restaurant, context={'request': request})
             return Response(serializer.data)
@@ -147,6 +156,25 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     def update_profile(self, request):
         """Update restaurant profile"""
         try:
+            # Check if user has a restaurant profile, if not create one
+            if not hasattr(request.user, 'restaurant'):
+                logger.info(f"[RESTAURANTS] Auto-creating restaurant profile for user {request.user.id}")
+                from apps.restaurants.models import Restaurant
+                
+                commercial_name = request.user.first_name or request.user.get_full_name() or f"Restaurant de {request.user.email.split('@')[0]}"
+                legal_name = f"{commercial_name} SARL"
+                
+                restaurant = Restaurant.objects.create(
+                    user=request.user,
+                    commercial_name=commercial_name,
+                    legal_name=legal_name,
+                    description="À compléter - Profil créé automatiquement",
+                    full_address="À compléter",
+                    cuisine_type='AUTRE',
+                    price_level='€€',
+                )
+                logger.info(f"[RESTAURANTS] Created restaurant profile: {restaurant.id} for user {request.user.id}")
+            
             restaurant = request.user.restaurant
             serializer = RestaurantUpdateSerializer(
                 restaurant, data=request.data, partial=True
@@ -162,6 +190,25 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     def dashboard_stats(self, request):
         """Get restaurant dashboard statistics"""
         try:
+            # Check if user has a restaurant profile, if not create one
+            if not hasattr(request.user, 'restaurant'):
+                logger.info(f"[RESTAURANTS] Auto-creating restaurant profile for user {request.user.id}")
+                from apps.restaurants.models import Restaurant
+                
+                commercial_name = request.user.first_name or request.user.get_full_name() or f"Restaurant de {request.user.email.split('@')[0]}"
+                legal_name = f"{commercial_name} SARL"
+                
+                restaurant = Restaurant.objects.create(
+                    user=request.user,
+                    commercial_name=commercial_name,
+                    legal_name=legal_name,
+                    description="À compléter - Profil créé automatiquement",
+                    full_address="À compléter",
+                    cuisine_type='AUTRE',
+                    price_level='€€',
+                )
+                logger.info(f"[RESTAURANTS] Created restaurant profile: {restaurant.id} for user {request.user.id}")
+            
             restaurant = request.user.restaurant
             from django.utils import timezone
             from django.db.models import Count, Sum, Avg
@@ -225,20 +272,55 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     def recent_orders(self, request):
         """Get recent orders for the restaurant"""
         try:
+            # Check if user has a restaurant profile, if not create one
+            if not hasattr(request.user, 'restaurant'):
+                logger.info(f"[RESTAURANTS] Auto-creating restaurant profile for user {request.user.id}")
+                from apps.restaurants.models import Restaurant
+
+                commercial_name = request.user.first_name or request.user.get_full_name() or f"Restaurant de {request.user.email.split('@')[0]}"
+                legal_name = f"{commercial_name} SARL"
+
+                restaurant = Restaurant.objects.create(
+                    user=request.user,
+                    commercial_name=commercial_name,
+                    legal_name=legal_name,
+                    description="À compléter - Profil créé automatiquement",
+                    full_address="À compléter",
+                    cuisine_type='AUTRE',
+                    price_level='€€',
+                )
+                logger.info(f"[RESTAURANTS] Created restaurant profile: {restaurant.id} for user {request.user.id}")
+
             restaurant = request.user.restaurant
             from django.utils import timezone
             from apps.orders.models import Commande
             from apps.orders.serializers import CommandeDetailSerializer
-            
+
             # Get last 10 orders
             orders = Commande.objects.filter(
                 restaurant=restaurant
             ).order_by('-date_created')[:10]
-            
+
             serializer = CommandeDetailSerializer(orders, many=True)
             return Response(serializer.data)
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.exception(f"[RESTAURANTS] Error getting recent orders: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    def orders(self, request):
+        """Get all orders for the restaurant"""
+        try:
+            restaurant = request.user.restaurant
+            from apps.orders.models import Commande
+            from apps.orders.serializers import CommandeDetailSerializer
+            orders = Commande.objects.filter(restaurant=restaurant).order_by('-date_created')
+            serializer = CommandeDetailSerializer(orders, many=True)
+            return Response(serializer.data)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(f"[RESTAURANTS] Error getting orders: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

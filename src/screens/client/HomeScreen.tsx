@@ -15,6 +15,7 @@ import {
 } from "react-native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
 import { useFocusEffect } from "@react-navigation/native"
+import { Ionicons } from "@expo/vector-icons"
 import { useAppDispatch, useAppSelector } from "../../hooks"
 import { getNearbyRestaurants } from "../../redux/slices/restaurantSlice"
 import type { ClientStackParamList } from "../../navigation/ClientNavigator"
@@ -24,9 +25,10 @@ import RestaurantCard from "../../components/RestaurantCard"
 
 type Props = NativeStackScreenProps<ClientStackParamList, "Home">
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation }: Props) => {
   const dispatch = useAppDispatch()
   const { restaurants, isLoading } = useAppSelector((state) => state.restaurant)
+  const { user } = useAppSelector((state) => state.auth)
   const [refreshing, setRefreshing] = useState(false)
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
@@ -65,8 +67,25 @@ const HomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Deliver It</Text>
-        <Text style={styles.location}>📍 Your Location</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.greeting}>
+            {user?.first_name ? `Bonjour, ${user.first_name}` : "Bonjour !"}
+          </Text>
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={() => navigation.navigate("RestaurantsMap")}
+          >
+            <Ionicons name="map-outline" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.locationContainer}>
+          <Ionicons name="location-sharp" size={16} color={COLORS.primary} />
+          <Text style={styles.location} numberOfLines={1}>
+            {userLocation
+              ? `${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}`
+              : "Getting location..."}
+          </Text>
+        </View>
       </View>
 
       {isLoading && restaurants.length === 0 ? (
@@ -115,15 +134,35 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.lg,
     paddingTop: SPACING["2xl"],
   },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   greeting: {
     fontSize: TYPOGRAPHY.fontSize["2xl"],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: "bold" as const,
     color: COLORS.white,
     marginBottom: SPACING.sm,
+  },
+  mapButton: {
+    backgroundColor: COLORS.white,
+    borderRadius: 25,
+    padding: SPACING.sm,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   location: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.white,
+    marginLeft: SPACING.xs,
   },
   centerContainer: {
     flex: 1,
@@ -141,14 +180,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600" as const,
     color: COLORS.dark,
   },
   viewAll: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600" as const,
   },
 })
 
 export default HomeScreen
+

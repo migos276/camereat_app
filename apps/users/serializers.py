@@ -29,18 +29,32 @@ class DocumentVerificationSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     addresses = AddressSerializer(many=True, read_only=True)
-    
+    restaurant_id = serializers.SerializerMethodField()
+    supermarket_id = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             'id', 'email', 'full_name', 'first_name', 'last_name', 'phone',
             'photo_profil', 'user_type', 'statut_verification', 'is_verified',
-            'is_approved', 'addresses', 'date_creation'
+            'is_approved', 'addresses', 'restaurant_id', 'supermarket_id', 'date_creation'
         ]
         read_only_fields = ['id', 'date_creation', 'user_type', 'statut_verification']
-    
+
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+    def get_restaurant_id(self, obj):
+        try:
+            return obj.restaurant.id
+        except:
+            return None
+
+    def get_supermarket_id(self, obj):
+        try:
+            return obj.supermarche.id
+        except:
+            return None
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)

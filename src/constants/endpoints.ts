@@ -33,6 +33,9 @@ export const ENDPOINTS = {
   RESTAURANTS_RATINGS: (id: string) => `restaurants/${id}/ratings/`,
   RESTAURANTS_DASHBOARD_STATS: "restaurants/dashboard_stats/",
   RESTAURANTS_RECENT_ORDERS: "restaurants/recent_orders/",
+  RESTAURANTS_ORDERS: "restaurants/orders/",
+  RESTAURANTS_MY_RESTAURANT: "restaurants/my_restaurant/",
+  RESTAURANTS_UPDATE_PROFILE: "restaurants/update_profile/",
 
   // Supermarkets (under api/supermarches/)
   SUPERMARKETS_LIST: "supermarkets/",

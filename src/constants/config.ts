@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://172.20.10.3:8000/api"
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://20.20.20.204:8000/api"
 
 export const APP_CONSTANTS = {
   USER_TYPES: {
@@ -58,6 +58,17 @@ export const COLORS = {
   background: "#F7F7F7",
   darkGray: "#2D2D2D",
   card: "#FFFFFF",
+  // Aliases for common color names
+  RESTAURANT_PRIMARY: "#FF6B35",
+  SUPERMARCHE_PRIMARY: "#004E89",
+  LIVREUR_PRIMARY: "#06A77D",
+  SUCCESS: "#06A77D",
+  WARNING: "#F4A261",
+  DANGER: "#E76F51",
+  TEXT_PRIMARY: "#1F1F1F",
+  TEXT_SECONDARY: "#999999",
+  WHITE: "#FFFFFF",
+  BACKGROUND: "#F7F7F7",
 }
 
 // Dark mode colors
@@ -98,6 +109,35 @@ export const TYPOGRAPHY = {
     medium: "500",
     semibold: "600",
     bold: "700",
+  },
+  // Aliases for common text styles
+  caption: {
+    fontSize: 12,
+    fontWeight: "normal" as const,
+  },
+  body2: {
+    fontSize: 14,
+    fontWeight: "normal" as const,
+  },
+  body1: {
+    fontSize: 16,
+    fontWeight: "normal" as const,
+  },
+  heading4: {
+    fontSize: 18,
+    fontWeight: "bold" as const,
+  },
+  heading3: {
+    fontSize: 20,
+    fontWeight: "bold" as const,
+  },
+  heading2: {
+    fontSize: 24,
+    fontWeight: "bold" as const,
+  },
+  heading1: {
+    fontSize: 30,
+    fontWeight: "bold" as const,
   },
 }
 

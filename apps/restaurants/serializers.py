@@ -80,7 +80,8 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = [
-            'commercial_name', 'description', 'logo', 'cover_image',
+            'commercial_name', 'legal_name', 'description', 'logo', 'cover_image',
             'delivery_radius_km', 'opening_hours', 'avg_preparation_time',
-            'price_level', 'base_delivery_fee', 'min_order_amount', 'is_open'
+            'price_level', 'base_delivery_fee', 'min_order_amount', 'is_open',
+            'cuisine_type', 'full_address'
         ]

@@ -19,7 +19,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ navigation
   const [formData, setFormData] = useState({
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",
-    phone_number: user?.phone_number || "",
+    phone_number: user?.phone || "",
     email: user?.email || "",
   })
 
@@ -143,6 +143,4 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gray,
   },
 })
-
-export default EditProfileScreen
 

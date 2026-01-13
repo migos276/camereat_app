@@ -51,6 +51,21 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos.",
           "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos."
         }
+      ],
+      [
+        "react-native-maps",
+        {
+          "ios": {
+            "config": {
+              "provider": "apple"
+            }
+          },
+          "android": {
+            "config": {
+              "provider": "google"
+            }
+          }
+        }
       ]
     ],
     "extra": {

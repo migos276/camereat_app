@@ -8,6 +8,7 @@ import { MaterialIcons } from "@expo/vector-icons"
 import type { SupermarchéStackParamList } from "../../navigation/SupermarchéNavigator"
 import { Header, Card, Button } from "../../components"
 import { COLORS, TYPOGRAPHY } from "../../constants/config"
+import { formatPrice } from "../../utils/priceFormatter"
 
 type Props = NativeStackScreenProps<SupermarchéStackParamList, "SupermarketProducts">
 
@@ -45,7 +46,7 @@ const SupermarketProductsScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.categoryText}>{item.category}</Text>
           </View>
         </View>
-        <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.productPrice}>${formatPrice(item.price)}</Text>
       </View>
 
       <View style={styles.productDetails}>

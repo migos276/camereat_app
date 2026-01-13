@@ -26,7 +26,7 @@ export const RestaurantDashboardScreen: React.FC<any> = ({ navigation }) => {
 
         <View style={styles.statsGrid}>
           <Card style={styles.statCard}>
-<MaterialIcons name="shopping-cart" size={28} color={COLORS.RESTAURANT_PRIMARY} style={styles.statIcon} />
+            <MaterialIcons name="shopping-cart" size={28} color={COLORS.RESTAURANT_PRIMARY} style={styles.statIcon} />
             <Text style={styles.statValue}>8</Text>
             <Text style={styles.statLabel}>Pending Orders</Text>
           </Card>
@@ -51,7 +51,7 @@ export const RestaurantDashboardScreen: React.FC<any> = ({ navigation }) => {
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.jumpTo("OrdersStack")}>
-<MaterialIcons name="shopping-cart" size={24} color={COLORS.WHITE} style={styles.buttonIcon} />
+          <MaterialIcons name="shopping-cart" size={24} color={COLORS.WHITE} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>View Pending Orders</Text>
           <Badge text="8" variant="error" />
         </TouchableOpacity>
@@ -64,6 +64,21 @@ export const RestaurantDashboardScreen: React.FC<any> = ({ navigation }) => {
             <MaterialIcons name="chevron-right" size={20} color={COLORS.TEXT_SECONDARY} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate("OrdersStack" as any)}>
+            <MaterialIcons name="receipt-long" size={20} color={COLORS.RESTAURANT_PRIMARY} />
+            <Text style={styles.quickActionText}>View All Orders</Text>
+            <MaterialIcons name="chevron-right" size={20} color={COLORS.TEXT_SECONDARY} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate("Statistics" as any)}>
+            <MaterialIcons name="analytics" size={20} color={COLORS.RESTAURANT_PRIMARY} />
+            <Text style={styles.quickActionText}>View Statistics</Text>
+            <MaterialIcons name="chevron-right" size={20} color={COLORS.TEXT_SECONDARY} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate("RestaurantProfile" as any)}>
+            <MaterialIcons name="store" size={20} color={COLORS.RESTAURANT_PRIMARY} />
+            <Text style={styles.quickActionText}>Edit Profile</Text>
+            <MaterialIcons name="chevron-right" size={20} color={COLORS.TEXT_SECONDARY} />
+          </TouchableOpacity>
+        </Card>
       </ScrollView>
     </View>
   )
@@ -72,7 +87,7 @@ export const RestaurantDashboardScreen: React.FC<any> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: COLORS.background,
   },
   content: {
     padding: 16,
@@ -161,3 +176,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 })
+

@@ -1,56 +1,72 @@
 "use client"
 
 import type React from "react"
-import { View, FlatList, StyleSheet, Text, TouchableOpacity, Switch } from "react-native"
-import { useState } from "react"
+import { View, FlatList, StyleSheet, Text, TouchableOpacity, Switch, Alert } from "react-native"
+import { useEffect, useCallback } from "react"
 import { MaterialIcons } from "@expo/vector-icons"
+import { useDispatch, useSelector } from "react-redux"
+import type { RootState, AppDispatch } from "../../redux/store"
+import { fetchProducts, updateProduct } from "../../redux/slices/productSlice"
 import { Header, Card, Button } from "../../components"
 import { COLORS, TYPOGRAPHY } from "../../constants/config"
-
-interface MenuItem {
-  id: string
-  name: string
-  price: number
-  available: boolean
-  category: string
-}
+import type { Product } from "../../types"
+import { formatPrice } from "../../utils/priceFormatter"
 
 export const RestaurantMenuScreen: React.FC<any> = ({ navigation }) => {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([
-    { id: "1", name: "Margherita Pizza", price: 12.99, available: true, category: "Pizzas" },
-    { id: "2", name: "Pepperoni Pizza", price: 14.99, available: true, category: "Pizzas" },
-    { id: "3", name: "Carbonara Pasta", price: 14.99, available: false, category: "Pasta" },
-    { id: "4", name: "Fettuccine Alfredo", price: 13.99, available: true, category: "Pasta" },
-  ])
+  const dispatch = useDispatch<AppDispatch>()
+  const { user } = useSelector((state: RootState) => state.auth)
+  const { products, isLoading, error } = useSelector((state: RootState) => state.products)
 
-  const toggleAvailability = (id: string) => {
-    setMenuItems((prev) => prev.map((item) => (item.id === id ? { ...item, available: !item.available } : item)))
+  const loadProducts = useCallback(() => {
+    if (user?.restaurant_id) {
+      dispatch(fetchProducts({ restaurant: user.restaurant_id }))
+    }
+  }, [dispatch, user?.restaurant_id])
+
+  useEffect(() => {
+    loadProducts()
+  }, [loadProducts])
+
+  // Refresh products when returning from AddProduct screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadProducts()
+    })
+    return unsubscribe
+  }, [navigation, loadProducts])
+
+  const toggleAvailability = async (product: Product) => {
+    try {
+      await dispatch(updateProduct({ id: product.id, data: { available: !product.available } }))
+    } catch (error) {
+      console.error("Failed to update product availability:", error)
+    }
   }
 
-  const renderMenuItem = ({ item }: { item: MenuItem }) => (
+  const renderMenuItem = ({ item }: { item: Product }) => (
     <Card style={styles.menuItemCard}>
       <View style={styles.menuItemHeader}>
         <View style={styles.menuItemInfo}>
           <Text style={styles.menuItemName}>{item.name}</Text>
-          <Text style={styles.menuItemCategory}>{item.category}</Text>
+          <Text style={styles.menuItemCategory}>{typeof item.category === 'string' ? item.category : item.category?.name || "No category"}</Text>
         </View>
-        <Text style={styles.menuItemPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.menuItemPrice}>${formatPrice(item.price)}</Text>
       </View>
 
       <View style={styles.menuItemFooter}>
         <View style={styles.availabilityStatus}>
-          <View style={[styles.statusDot, { backgroundColor: item.available ? COLORS.SUCCESS : COLORS.ERROR }]} />
+          <View style={[styles.statusDot, { backgroundColor: item.available ? COLORS.success : COLORS.danger }]} />
           <Text style={styles.availabilityText}>{item.available ? "Available" : "Unavailable"}</Text>
         </View>
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionButton}>
-            <MaterialIcons name="edit" size={18} color={COLORS.RESTAURANT_PRIMARY} />
+            <MaterialIcons name="edit" size={18} color={COLORS.primary} />
           </TouchableOpacity>
           <Switch
             value={item.available}
-            onValueChange={() => toggleAvailability(item.id)}
-            trackColor={{ false: COLORS.BORDER, true: COLORS.SUCCESS }}
-            thumbColor={COLORS.WHITE}
+            onValueChange={() => toggleAvailability(item)}
+            trackColor={{ false: COLORS.gray, true: COLORS.success }}
+            thumbColor={COLORS.white}
           />
         </View>
       </View>
@@ -67,7 +83,7 @@ export const RestaurantMenuScreen: React.FC<any> = ({ navigation }) => {
       />
 
       <FlatList
-        data={menuItems}
+        data={products}
         renderItem={renderMenuItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -77,7 +93,7 @@ export const RestaurantMenuScreen: React.FC<any> = ({ navigation }) => {
       <View style={styles.footer}>
         <Button
           title="Add New Product"
-          color={COLORS.RESTAURANT_PRIMARY}
+          color={COLORS.primary}
           onPress={() => navigation.navigate("AddProduct")}
         />
       </View>
@@ -88,7 +104,7 @@ export const RestaurantMenuScreen: React.FC<any> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: COLORS.background,
   },
   listContent: {
     padding: 16,
@@ -96,6 +112,7 @@ const styles = StyleSheet.create({
   },
   menuItemCard: {
     marginBottom: 12,
+    backgroundColor: COLORS.white,
   },
   menuItemHeader: {
     flexDirection: "row",
@@ -107,18 +124,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuItemName: {
-    ...TYPOGRAPHY.body1,
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: "700",
     marginBottom: 2,
+    color: COLORS.dark,
   },
   menuItemCategory: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.gray,
   },
   menuItemPrice: {
-    ...TYPOGRAPHY.heading3,
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: "700",
-    color: COLORS.RESTAURANT_PRIMARY,
+    color: COLORS.primary,
   },
   menuItemFooter: {
     flexDirection: "row",
@@ -126,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
+    borderTopColor: COLORS.lightGray,
   },
   availabilityStatus: {
     flexDirection: "row",
@@ -139,8 +157,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   availabilityText: {
-    ...TYPOGRAPHY.caption,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: "600",
+    color: COLORS.dark,
   },
   actions: {
     flexDirection: "row",
@@ -153,7 +172,7 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
-    backgroundColor: COLORS.WHITE,
+    borderTopColor: COLORS.lightGray,
+    backgroundColor: COLORS.white,
   },
 })
