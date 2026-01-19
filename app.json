@@ -62,7 +62,8 @@
           },
           "android": {
             "config": {
-              "provider": "google"
+              "provider": "google",
+              "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
             }
           }
         }

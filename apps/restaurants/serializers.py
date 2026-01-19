@@ -77,11 +77,54 @@ class RestaurantDetailSerializer(GeoFeatureModelSerializer):
         ]
 
 class RestaurantUpdateSerializer(serializers.ModelSerializer):
+    # Mapping of display names to valid choice keys (case-insensitive, trim spaces)
+    CUISINE_NAME_TO_KEY = {
+        'africain': 'AFRICAIN',
+        'asiatique': 'ASIATIQUE',
+        'européen': 'EUROPEEN',
+        'europeen': 'EUROPEEN',
+        'fast food': 'FAST_FOOD',
+        'fastfood': 'FAST_FOOD',
+        'pizza': 'PIZZA',
+        'burger': 'BURGER',
+        'sushi': 'SUSHI',
+        'italien': 'ITALIEN',
+        'français': 'FRANCAIS',
+        'francais': 'FRANCAIS',
+        'autre': 'AUTRE',
+    }
+    
     class Meta:
         model = Restaurant
         fields = [
             'commercial_name', 'legal_name', 'description', 'logo', 'cover_image',
             'delivery_radius_km', 'opening_hours', 'avg_preparation_time',
             'price_level', 'base_delivery_fee', 'min_order_amount', 'is_open',
-            'cuisine_type', 'full_address'
+            'cuisine_type', 'full_address', 'latitude', 'longitude'
         ]
+    
+    def validate_cuisine_type(self, value):
+        """Validate and normalize cuisine_type - handle trailing spaces and case-insensitive matching"""
+        if not value:
+            return value
+        
+        # Strip trailing/leading whitespace
+        cleaned_value = value.strip()
+        
+        # Check if it's already a valid choice key
+        valid_keys = [choice[0] for choice in Restaurant.CUISINE_CHOICES]
+        
+        if cleaned_value.upper() in valid_keys:
+            return cleaned_value.upper()
+        
+        # Try to match by display name (case-insensitive)
+        normalized_name = cleaned_value.lower().replace('é', 'e').replace('è', 'e')
+        
+        if normalized_name in self.CUISINE_NAME_TO_KEY:
+            return self.CUISINE_NAME_TO_KEY[normalized_name]
+        
+        # If still not valid, raise error with valid options
+        valid_options = ', '.join([f"'{c[1]}' ({c[0]})" for c in Restaurant.CUISINE_CHOICES])
+        raise serializers.ValidationError(
+            f"« {value} » n'est pas un choix valide. Options valides: {valid_options}"
+        )

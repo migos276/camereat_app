@@ -1,5 +1,6 @@
 import logging
 from rest_framework import viewsets, status
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -125,10 +126,11 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def menu(self, request, pk=None):
-        """Get restaurant menu"""
+        """Get restaurant menu - returns ALL products for clients to see full menu"""
         restaurant = self.get_object()
         from apps.products.models import Produit
-        products = Produit.objects.filter(restaurant=restaurant, available=True)
+        # Show ALL products (including unavailable) so clients can see the full menu
+        products = Produit.objects.filter(restaurant=restaurant)
         from apps.products.serializers import ProduitSerializer
         serializer = ProduitSerializer(products, many=True)
         return Response(serializer.data)
@@ -152,9 +154,9 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    @action(detail=False, methods=['put'], permission_classes=[IsAuthenticated, IsRestaurantOwner, IsApproved])
+    @action(detail=False, methods=['put', 'patch'], permission_classes=[IsAuthenticated, IsRestaurantOwner, IsApproved])
     def update_profile(self, request):
-        """Update restaurant profile"""
+        """Update restaurant profile - supports multipart/form-data for file uploads"""
         try:
             # Check if user has a restaurant profile, if not create one
             if not hasattr(request.user, 'restaurant'):
@@ -176,15 +178,98 @@ class RestaurantViewSet(viewsets.ModelViewSet):
                 logger.info(f"[RESTAURANTS] Created restaurant profile: {restaurant.id} for user {request.user.id}")
             
             restaurant = request.user.restaurant
-            serializer = RestaurantUpdateSerializer(
-                restaurant, data=request.data, partial=True
-            )
+            
+            # Check if this is a multipart request (file upload)
+            content_type = request.content_type
+            if content_type and 'multipart' in content_type:
+                # Handle multipart form data with files
+                serializer = RestaurantUpdateSerializer(
+                    restaurant, data=request.data, partial=True, context={'request': request}
+                )
+            else:
+                # Regular JSON request
+                serializer = RestaurantUpdateSerializer(
+                    restaurant, data=request.data, partial=True
+                )
+            
             if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
+                # Save the main data first
+                saved_restaurant = serializer.save()
+                
+                # Handle latitude/longitude updates and position auto-calculation
+                latitude = request.data.get('latitude') or serializer.validated_data.get('latitude')
+                longitude = request.data.get('longitude') or serializer.validated_data.get('longitude')
+                
+                if latitude and longitude:
+                    try:
+                        lat_float = float(latitude)
+                        lon_float = float(longitude)
+                        
+                        # Validate coordinate ranges
+                        if -90 <= lat_float <= 90 and -180 <= lon_float <= 180:
+                            # Update latitude/longitude fields
+                            restaurant.latitude = lat_float
+                            restaurant.longitude = lon_float
+                            
+                            # Update position field (PointField requires (lon, lat) order in GeoDjango)
+                            from django.contrib.gis.geos import Point
+                            restaurant.position = Point(lon_float, lat_float, srid=4326)
+                            restaurant.save()
+                            logger.info(f"[RESTAURANTS] Updated position for restaurant {restaurant.id}: ({lat_float}, {lon_float})")
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"[RESTAURANTS] Invalid coordinates provided: lat={latitude}, lon={longitude}, error={e}")
+                
+                # Return full updated restaurant data
+                from apps.restaurants.serializers import RestaurantDetailSerializer
+                detail_serializer = RestaurantDetailSerializer(restaurant, context={'request': request})
+                return Response(detail_serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner, IsApproved])
+    def upload_logo(self, request):
+        """Upload restaurant logo image"""
+        try:
+            if not hasattr(request.user, 'restaurant'):
+                return Response({'error': 'Restaurant profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            restaurant = request.user.restaurant
+            
+            if 'logo' not in request.FILES:
+                return Response({'error': 'No logo file provided'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            restaurant.logo = request.FILES['logo']
+            restaurant.save()
+            
+            from apps.restaurants.serializers import RestaurantDetailSerializer
+            serializer = RestaurantDetailSerializer(restaurant, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            logger.exception(f"[RESTAURANTS] Error uploading logo: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner, IsApproved])
+    def upload_cover_image(self, request):
+        """Upload restaurant cover image"""
+        try:
+            if not hasattr(request.user, 'restaurant'):
+                return Response({'error': 'Restaurant profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            restaurant = request.user.restaurant
+            
+            if 'cover_image' not in request.FILES:
+                return Response({'error': 'No cover_image file provided'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            restaurant.cover_image = request.FILES['cover_image']
+            restaurant.save()
+            
+            from apps.restaurants.serializers import RestaurantDetailSerializer
+            serializer = RestaurantDetailSerializer(restaurant, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            logger.exception(f"[RESTAURANTS] Error uploading cover image: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
     def dashboard_stats(self, request):
@@ -324,3 +409,56 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.exception(f"[RESTAURANTS] Error getting orders: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RegisterRestaurantProfileView(APIView):
+    """Register restaurant profile after user account creation"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        # Check if user is already a restaurant
+        if not hasattr(request.user, 'restaurant'):
+            # Create restaurant profile
+            restaurant = Restaurant.objects.create(
+                user=request.user,
+                commercial_name=request.data.get('commercial_name', f"Restaurant de {request.user.first_name or request.user.email.split('@')[0]}"),
+                legal_name=request.data.get('legal_name', f"{request.data.get('commercial_name', 'Restaurant')} SARL"),
+                description=request.data.get('description', ''),
+                rccm_number=request.data.get('rccm_number', ''),
+                tax_number=request.data.get('tax_number', ''),
+                restaurant_license=request.data.get('restaurant_license', ''),
+                cuisine_type=request.data.get('cuisine_type', 'AUTRE'),
+                full_address=request.data.get('full_address', ''),
+                delivery_radius_km=request.data.get('delivery_radius_km', 5),
+                avg_preparation_time=request.data.get('avg_preparation_time', 30),
+                opening_hours=request.data.get('opening_hours', {}),
+                price_level=request.data.get('price_level', '€€'),
+                base_delivery_fee=request.data.get('base_delivery_fee', 0),
+                min_order_amount=request.data.get('min_order_amount', 0),
+                bank_account=request.data.get('bank_account', {}),
+            )
+            
+            # Set position from lat/lng
+            latitude = request.data.get('latitude')
+            longitude = request.data.get('longitude')
+            if latitude and longitude:
+                from django.contrib.gis.geos import Point
+                restaurant.position = Point(float(longitude), float(latitude))
+                restaurant.latitude = latitude
+                restaurant.longitude = longitude
+                restaurant.save()
+            
+            logger.info(f"[RESTAURANTS] Created restaurant profile for user {request.user.id}")
+            
+            serializer = RestaurantDetailSerializer(restaurant, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            # Restaurant profile already exists, update it
+            restaurant = request.user.restaurant
+            serializer = RestaurantUpdateSerializer(restaurant, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                # Refresh to get full data
+                from apps.restaurants.serializers import RestaurantDetailSerializer
+                detail_serializer = RestaurantDetailSerializer(restaurant, context={'request': request})
+                return Response(detail_serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

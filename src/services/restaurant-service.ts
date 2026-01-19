@@ -40,24 +40,24 @@ const parseGeoJSONRestaurants = (data: any): Restaurant[] => {
   return data || []
 }
 
-// Helper to parse product data (convert strings to numbers)
+// Helper to parse product data (convert strings to numbers and handle backend response)
 const parseProductData = (products: any[]): Product[] => {
   return products.map((p) => ({
     id: String(p.id),
-    name: p.name,
-    description: p.description,
-    image: p.image,
-    price: parseFloat(p.price) || 0,
-    discount_percentage: p.discount_percentage ? parseFloat(p.discount_percentage) : undefined,
-    discount_price: p.discount_price ? parseFloat(p.discount_price) : undefined,
-    category: p.category,
-    unit: p.unit,
-    available: p.available,
-    stock: p.stock,
-    preparation_time: p.preparation_time,
-    sales_count: p.sales_count,
-    restaurant: p.restaurant,
-    supermarche: p.supermarche,
+    name: p.name || p.product_name || "Produit sans nom",
+    description: p.description || "",
+    image: p.image || null,
+    price: parseFloat(String(p.price)) || 0,
+    discount_percentage: p.discount_percentage ? parseFloat(String(p.discount_percentage)) : undefined,
+    discount_price: p.discount_price ? parseFloat(String(p.discount_price)) : undefined,
+    category: p.category || "",
+    unit: p.unit || "UNITE",
+    available: p.available !== undefined ? p.available : true,
+    stock: p.stock || null,
+    preparation_time: p.preparation_time || null,
+    sales_count: p.sales_count || 0,
+    restaurant: p.restaurant || null,
+    supermarche: p.supermarche || null,
   }))
 }
 
@@ -165,7 +165,123 @@ export const restaurantService = {
   },
 
   async updateRestaurantProfile(data: Partial<Restaurant>): Promise<Restaurant> {
-    const response = await api.put<Restaurant>(ENDPOINTS.RESTAURANTS_UPDATE_PROFILE, data)
+    // Check if we have file data (uri indicates a new image was picked)
+    const hasFileData = data.logo && typeof data.logo === 'string' && data.logo.startsWith('file://') ||
+                       data.cover_image && typeof data.cover_image === 'string' && data.cover_image.startsWith('file://');
+
+    if (hasFileData) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      
+      // Add text fields
+      Object.keys(data).forEach((key) => {
+        const value = data[key as keyof Restaurant];
+        if (key !== 'logo' && key !== 'cover_image' && value !== undefined && value !== null) {
+          formData.append(key, String(value));
+        }
+      });
+
+      // Add logo file
+      if (data.logo && typeof data.logo === 'string' && data.logo.startsWith('file://')) {
+        const filename = data.logo.split('/').pop() || 'logo.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('logo', {
+          uri: data.logo,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      // Add cover_image file
+      if (data.cover_image && typeof data.cover_image === 'string' && data.cover_image.startsWith('file://')) {
+        const filename = data.cover_image.split('/').pop() || 'cover.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('cover_image', {
+          uri: data.cover_image,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      const response = await api.put<Restaurant>(ENDPOINTS.RESTAURANTS_UPDATE_PROFILE, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    }
+
+    // Regular JSON update
+    const response = await api.put<Restaurant>(ENDPOINTS.RESTAURANTS_UPDATE_PROFILE, data);
+    return response.data;
+  },
+
+  async uploadLogo(uri: string): Promise<Restaurant> {
+    const filename = uri.split('/').pop() || 'logo.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    const formData = new FormData();
+    formData.append('logo', {
+      uri,
+      name: filename,
+      type,
+    } as any);
+
+    const response = await api.post<Restaurant>(ENDPOINTS.RESTAURANTS_UPLOAD_LOGO, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  async uploadCoverImage(uri: string): Promise<Restaurant> {
+    const filename = uri.split('/').pop() || 'cover.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    const formData = new FormData();
+    formData.append('cover_image', {
+      uri,
+      name: filename,
+      type,
+    } as any);
+
+    const response = await api.post<Restaurant>(ENDPOINTS.RESTAURANTS_UPLOAD_COVER, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  async registerRestaurantProfile(data: {
+    commercial_name: string
+    legal_name?: string
+    description?: string
+    rccm_number?: string
+    tax_number?: string
+    restaurant_license?: string
+    cuisine_type: string
+    full_address?: string
+    latitude?: number
+    longitude?: number
+    delivery_radius_km?: number
+    avg_preparation_time?: number
+    opening_hours?: Record<string, any>
+    price_level?: string
+    base_delivery_fee?: number
+    min_order_amount?: number
+    bank_account?: Record<string, any>
+    logo?: string | null
+    cover_image?: string | null
+  }): Promise<Restaurant> {
+    const response = await api.post<Restaurant>(ENDPOINTS.RESTAURANTS_REGISTER_PROFILE, data)
     return response.data
   },
 }

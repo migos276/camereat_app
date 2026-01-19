@@ -1,6 +1,7 @@
 import axiosService from "./axios-instance"
 import { ENDPOINTS } from "../constants/endpoints"
 import type { Address } from "../types"
+import type { User } from "../types"
 
 const api = axiosService.getInstance()
 
@@ -14,6 +15,32 @@ export const userService = {
     }
 
     const response = await api.post(ENDPOINTS.USERS_UPLOAD_DOCUMENT, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    })
+    return response.data
+  },
+
+  async uploadProfilePhoto(photoUri: string): Promise<{ user: User; photo_profil: string }> {
+    // Get the filename from the URI
+    const filename = photoUri.split("/").pop() || "photo_profil.jpg"
+    
+    // Determine the MIME type based on file extension
+    const match = /\.(\w+)$/.exec(filename)
+    const mimeType = match ? `image/${match[1]}` : "image/jpeg"
+    
+    // Create the file object for FormData
+    const file = {
+      uri: photoUri,
+      name: filename,
+      type: mimeType,
+    } as any
+    
+    const formData = new FormData()
+    formData.append("photo_profil", file)
+
+    const response = await api.post(ENDPOINTS.USERS_UPLOAD_PHOTO, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

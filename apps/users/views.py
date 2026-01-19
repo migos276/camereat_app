@@ -123,3 +123,61 @@ class AddressViewSet(viewsets.ModelViewSet):
         if serializer.validated_data.get('is_main'):
             self.get_queryset().update(is_main=False)
         serializer.save()
+
+class ProfilePhotoUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        # Check if photo_profil is in request.FILES
+        if 'photo_profil' not in request.FILES:
+            return Response(
+                {'error': 'No image file provided. Please upload an image file.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        photo_file = request.FILES['photo_profil']
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        if photo_file.content_type not in allowed_types:
+            return Response(
+                {'error': 'Invalid file type. Only JPEG, PNG, GIF and WebP images are allowed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate file size (max 5MB)
+        max_size = 5 * 1024 * 1024  # 5MB
+        if photo_file.size > max_size:
+            return Response(
+                {'error': 'File too large. Maximum file size is 5MB.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Delete old photo if exists
+        if request.user.photo_profil:
+            try:
+                # Delete the old file from storage
+                request.user.photo_profil.delete(save=False)
+            except Exception as e:
+                # Log but continue - we still want to upload the new photo
+                print(f"[ProfilePhotoUploadView] Error deleting old photo: {e}")
+        
+        # Save the new photo
+        request.user.photo_profil = photo_file
+        request.user.save()
+        
+        # Return the updated user data with full URL
+        serializer = UserSerializer(request.user)
+        
+        # Build full URL for the photo
+        photo_url = serializer.data.get('photo_profil')
+        if photo_url and not photo_url.startswith('http'):
+            # Get the base URL from request
+            base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
+            photo_url = f"{base_url}{photo_url}"
+        
+        return Response({
+            'message': 'Profile photo uploaded successfully',
+            'photo_profil': photo_url,
+            'user': serializer.data
+        }, status=status.HTTP_200_OK)

@@ -31,7 +31,7 @@ export const UploadDocumentsScreen: React.FC<UploadDocumentsScreenProps> = ({ na
   const handlePickImage = useCallback(async (documentId: string) => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images as any,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,

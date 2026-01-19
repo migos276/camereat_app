@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../config/env"
+import { API_BASE_URL } from "./../config/env"
 
 // Constants for colors
 export const COLORS = {

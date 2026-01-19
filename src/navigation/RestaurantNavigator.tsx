@@ -10,7 +10,7 @@ import OrderDetailScreen from "../screens/restaurant/OrderDetailScreen"
 import { RestaurantMenuScreen as MenuScreen } from "../screens/restaurant/MenuScreen"
 import RestaurantProfileScreen from "../screens/restaurant/RestaurantProfileScreen"
 import AddProductScreen from "../screens/restaurant/AddProductScreen"
-import EditProfileScreen from "../screens/restaurant/EditProfileScreen"
+import { EditProfileScreen } from "../screens/restaurant/EditProfileScreen"
 
 export type RestaurantStackParamList = {
   RestaurantHome: undefined

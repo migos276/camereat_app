@@ -1,20 +1,13 @@
-# TODO: Fix price.toFixed Error
+# TODO: Make Product Image Required for Restaurants
 
-## Completed Tasks
-- [x] Identify screens using price.toFixed(2)
-- [x] Add null checks in frontend screens
-- [x] Modify serializer to ensure price is never null
-- [x] Create formatPrice utility function in src/utils/priceFormatter.ts
-- [x] Update productSlice.ts to normalize price data (convert string to number)
-- [x] Update MenuScreen.tsx to use formatPrice helper
-- [x] Update SupermarketProductsScreen.tsx to use formatPrice helper
-- [x] Update ProductsScreen.tsx (supermarche) to use formatPrice helper
+## Tasks
+- [ ] Modify ProduitCreateUpdateSerializer to make image required when restaurant is provided
+- [ ] Add image upload functionality to restaurant AddProductScreen
+- [ ] Update product-service.ts to handle FormData for image uploads
+- [ ] Test that image is required for restaurants but not supermarkets
+- [ ] Verify image upload works correctly
 
-## Details
-- Created `src/utils/priceFormatter.ts` with `formatPrice()` function that safely handles:
-  - null/undefined prices
-  - string prices (converts to number)
-  - invalid number values
-- Updated `src/redux/slices/productSlice.ts` to normalize product prices when receiving from API
-- Updated all screens that display product prices to use `formatPrice()` helper
-- Error "item.price.toFixed is not a function" should now be resolved
+## Files to Modify
+- apps/products/serializers.py
+- src/screens/restaurant/AddProductScreen.tsx
+- src/services/product-service.ts

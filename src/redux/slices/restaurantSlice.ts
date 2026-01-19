@@ -165,6 +165,10 @@ const restaurantSlice = createSlice({
       .addCase(getRestaurantMenu.fulfilled, (state, action) => {
         state.isLoading = false
         state.menu = action.payload
+        // Debug log to check product data
+        if (__DEV__) {
+          console.log('[RESTAURANT_SLICE] Menu loaded:', JSON.stringify(action.payload).substring(0, 500))
+        }
       })
       .addCase(getRestaurantMenu.rejected, (state, action) => {
         state.isLoading = false

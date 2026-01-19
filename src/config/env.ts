@@ -18,7 +18,7 @@ const getApiBaseUrl = (): string => {
   }
   
   // Fallback par défaut - À MODIFIER avec votre IP locale!
-  const defaultUrl = "http://20.20.20.204:8000/api"
+  const defaultUrl = "http://172.20.10.3:8000/api"
   console.log("[API Config] URL par défaut utilisée:", defaultUrl)
   return defaultUrl
 }
@@ -28,7 +28,7 @@ const getSocketUrl = (): string => {
   if (envUrl) {
     return envUrl
   }
-  return "http://20.20.20.204:8000"
+  return "http://172.20.10.3:8000"
 }
 
 export const API_BASE_URL = getApiBaseUrl()

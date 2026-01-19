@@ -12,6 +12,7 @@ export const ENDPOINTS = {
   USERS_UPDATE_PROFILE: "auth/me/",
   USERS_CHANGE_PASSWORD: "auth/password/",
   USERS_UPLOAD_DOCUMENT: "auth/documents/",
+  USERS_UPLOAD_PHOTO: "auth/upload-photo/",
   USERS_ADDRESSES: "auth/addresses/",
   USERS_ADDRESS_CREATE: "auth/addresses/",
   USERS_ADDRESS_UPDATE: (id: string) => `auth/addresses/${id}/`,
@@ -36,6 +37,9 @@ export const ENDPOINTS = {
   RESTAURANTS_ORDERS: "restaurants/orders/",
   RESTAURANTS_MY_RESTAURANT: "restaurants/my_restaurant/",
   RESTAURANTS_UPDATE_PROFILE: "restaurants/update_profile/",
+  RESTAURANTS_REGISTER_PROFILE: "restaurants/register-profile/",
+  RESTAURANTS_UPLOAD_LOGO: "restaurants/upload_logo/",
+  RESTAURANTS_UPLOAD_COVER: "restaurants/upload_cover_image/",
 
   // Supermarkets (under api/supermarches/)
   SUPERMARKETS_LIST: "supermarkets/",

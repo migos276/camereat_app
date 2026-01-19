@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://20.20.20.204:8000/api"
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://172.20.10.3:8000/api"
 
 export const APP_CONSTANTS = {
   USER_TYPES: {

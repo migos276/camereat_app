@@ -25,6 +25,9 @@ export interface Restaurant {
   commercial_name: string
   legal_name?: string
   description?: string
+  rccm_number?: string
+  tax_number?: string
+  restaurant_license?: string
   logo?: string
   cover_image?: string
   latitude?: number
@@ -38,9 +41,11 @@ export interface Restaurant {
   base_delivery_fee?: number
   min_order_amount?: number
   cuisine_type?: string
+  opening_hours?: OpeningHours
   is_open?: boolean
   is_active?: boolean
   distance_km?: number
+  bank_account?: BankAccount
   // Backward compatibility
   name?: string
   image?: string
@@ -48,6 +53,30 @@ export interface Restaurant {
   cuisine_types?: string[]
   delivery_time?: number
   address?: string | Address
+}
+
+export interface OpeningHours {
+  monday?: DayHours
+  tuesday?: DayHours
+  wednesday?: DayHours
+  thursday?: DayHours
+  friday?: DayHours
+  saturday?: DayHours
+  sunday?: DayHours
+}
+
+export interface DayHours {
+  open: string
+  close: string
+  closed: boolean
+}
+
+export interface BankAccount {
+  bank_name?: string
+  account_number?: string
+  account_holder?: string
+  swift_code?: string
+  routing_number?: string
 }
 
 export interface Supermarket {

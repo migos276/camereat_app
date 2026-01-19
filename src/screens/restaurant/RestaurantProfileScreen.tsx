@@ -10,8 +10,11 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
+  Dimensions,
 } from "react-native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
+import { useFocusEffect } from "@react-navigation/native"
 import { MaterialIcons } from "@expo/vector-icons"
 import type { RestaurantStackParamList } from "../../navigation/RestaurantNavigator"
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/config"
@@ -19,6 +22,10 @@ import { useAppDispatch, useAppSelector } from "../../hooks"
 import { logout } from "../../redux/slices/authSlice"
 import { restaurantService } from "../../services/restaurant-service"
 import type { Restaurant } from "../../types"
+import { getFullImageUrl } from "../../utils/imageUtils"
+
+const { width } = Dimensions.get('window')
+const AVATAR_SIZE = 100
 
 type Props = NativeStackScreenProps<RestaurantStackParamList, "RestaurantProfile">
 
@@ -58,9 +65,41 @@ const RestaurantProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [])
 
-  useEffect(() => {
-    fetchRestaurantData()
-  }, [fetchRestaurantData])
+  // Use useFocusEffect to refresh data when screen comes into focus
+  // This ensures updated profile data is shown after editing
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true
+
+      // Reset loading state when screen comes into focus
+      setLoading(true)
+      
+      const loadData = async () => {
+        try {
+          setError(null)
+          const data = await restaurantService.getMyRestaurant()
+          if (isActive) {
+            setRestaurant(data)
+          }
+        } catch (err: any) {
+          console.error("Error fetching restaurant data:", err)
+          if (isActive) {
+            setError(err.response?.data?.message || "Failed to load restaurant profile")
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false)
+          }
+        }
+      }
+
+      loadData()
+
+      return () => {
+        isActive = false
+      }
+    }, [])
+  )
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -77,6 +116,11 @@ const RestaurantProfileScreen: React.FC<Props> = ({ navigation }) => {
     if (restaurant) {
       navigation.navigate("EditProfile" as never)
     }
+  }
+
+  // Helper function to get full image URL using the centralized utility
+  const getImageUrl = (path: string | undefined | null): string | null => {
+    return getFullImageUrl(path)
   }
 
   // Generate member since date from user creation or restaurant creation
@@ -118,6 +162,10 @@ const RestaurantProfileScreen: React.FC<Props> = ({ navigation }) => {
   const restaurantRating = restaurant?.average_rating?.toFixed(1) || "0.0"
   const totalOrders = restaurant?.review_count || 0
 
+  // Get image URLs
+  const coverImageUrl = getImageUrl(restaurant?.cover_image)
+  const logoImageUrl = getImageUrl(restaurant?.logo)
+
   return (
     <ScrollView
       style={styles.container}
@@ -125,10 +173,37 @@ const RestaurantProfileScreen: React.FC<Props> = ({ navigation }) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <MaterialIcons name="storefront" size={60} color={COLORS.primary} />
+      {/* Cover Image with Avatar Overlay */}
+      <View style={styles.coverImageContainer}>
+        {coverImageUrl ? (
+          <Image
+            source={{ uri: coverImageUrl }}
+            style={styles.coverImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.coverImagePlaceholder}>
+            <MaterialIcons name="restaurant" size={48} color={COLORS.gray} />
+          </View>
+        )}
+        <View style={styles.coverOverlay} />
+        {/* Avatar positioned absolutely over the cover image */}
+        <View style={[styles.avatarContainer, { left: (width - AVATAR_SIZE) / 2 }]}>
+          {logoImageUrl ? (
+            <Image
+              source={{ uri: logoImageUrl }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <MaterialIcons name="storefront" size={40} color={COLORS.primary} />
+            </View>
+          )}
         </View>
+      </View>
+
+      <View style={styles.header}>
         <Text style={styles.name}>{restaurantName}</Text>
         <Text style={styles.email}>{restaurantEmail}</Text>
         <View style={styles.statsRow}>
@@ -289,8 +364,8 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     paddingTop: SPACING["2xl"],
     alignItems: "center",
+    paddingBottom: SPACING["3xl"], // Extra padding to account for the overlapping avatar
   },
-  avatarContainer: { marginBottom: SPACING.md },
   name: {
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: "bold" as any,
@@ -370,7 +445,59 @@ const styles = StyleSheet.create({
   },
   versionContainer: { padding: SPACING.xl, alignItems: "center" },
   versionText: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.gray },
+  // Cover image styles
+  coverImageContainer: {
+    width: '100%',
+    height: 200,
+    backgroundColor: COLORS.light,
+    position: 'relative',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  coverImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.light,
+  },
+  coverOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  // Avatar styles - Fixed positioning
+  avatarContainer: {
+    position: 'absolute',
+    bottom: -50,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  avatarImage: {
+    width: AVATAR_SIZE - 6, // Subtract border width
+    height: AVATAR_SIZE - 6,
+    borderRadius: (AVATAR_SIZE - 6) / 2,
+  },
+  avatarPlaceholder: {
+    width: AVATAR_SIZE - 6,
+    height: AVATAR_SIZE - 6,
+    borderRadius: (AVATAR_SIZE - 6) / 2,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 })
 
 export default RestaurantProfileScreen
-

@@ -37,8 +37,9 @@ class Restaurant(models.Model):
     cover_image = models.ImageField(upload_to='restaurants/covers/', null=True, blank=True)
     
     position = gis_models.PointField(null=True, blank=True)
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    # Increased max_digits to 10 and decimal_places to 7 to allow more precise coordinates
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     full_address = models.TextField()
     
     delivery_radius_km = models.PositiveIntegerField(default=5)

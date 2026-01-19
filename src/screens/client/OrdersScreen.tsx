@@ -87,7 +87,7 @@ const OrdersScreen: React.FC<Props> = ({ navigation }) => {
       case "pending":
         return COLORS.warning
       case "confirmed":
-        return COLORS.info
+        return COLORS.primary
       case "preparing":
         return COLORS.primary
       case "ready":

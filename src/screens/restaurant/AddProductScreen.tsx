@@ -2,10 +2,11 @@
 
 import React from "react"
 import { useState } from "react"
-import { View, StyleSheet, Text, TextInput, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator } from "react-native"
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator, Image, Platform } from "react-native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
 import { useSelector } from "react-redux"
 import { MaterialIcons } from "@expo/vector-icons"
+import * as ImagePicker from 'expo-image-picker'
 import type { RestaurantStackParamList } from "../../navigation/RestaurantNavigator"
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/config"
 import { productService } from "../../services/product-service"
@@ -20,6 +21,11 @@ interface MenuItemData {
   description: string
   available: boolean
   unit?: string
+  image?: {
+    uri: string
+    name: string
+    type: string
+  }
 }
 
 const AddProductScreen: React.FC<Props> = ({ navigation }) => {
@@ -32,6 +38,7 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
   })
   const [errors, setErrors] = useState<Partial<MenuItemData>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [imageUri, setImageUri] = useState<string | null>(null)
 
   const user = useSelector((state: RootState) => state.auth.user)
 
@@ -54,8 +61,54 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
       newErrors.category = "Category is required"
     }
 
+    // Image is required for restaurants
+    if (!formData.image) {
+      newErrors.image = "Product image is required" as any
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
+  }
+
+  const pickImage = async () => {
+    // Request permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant permission to access your photos')
+      return
+    }
+
+    // Pick image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    })
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0]
+      const uri = asset.uri
+      setImageUri(uri)
+
+      // Extract filename from URI
+      const filename = uri.split('/').pop() || 'product-image.jpg'
+      
+      // Determine mime type
+      const match = /\.(\w+)$/.exec(filename)
+      const type = match ? `image/${match[1]}` : 'image/jpeg'
+
+      // Store image info for upload
+      setFormData({ 
+        ...formData, 
+        image: {
+          uri: uri,
+          name: filename,
+          type: type
+        }
+      })
+      setErrors({ ...errors, image: undefined })
+    }
   }
 
   const handleSave = async () => {
@@ -69,7 +122,7 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
       return
     }
 
-    // Check if user has restaurant owner profile - if not, show helpful message
+    // Check if user has restaurant owner profile
     if (user.user_type !== "RESTAURANT") {
       Alert.alert(
         "Error",
@@ -78,7 +131,7 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
       return
     }
 
-    // Check if user has a restaurant profile (restaurant_id is required)
+    // Check if user has a restaurant profile
     if (!user.restaurant_id) {
       Alert.alert(
         "Error",
@@ -90,17 +143,29 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
     setIsLoading(true)
 
     try {
-      const productData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
-        category: formData.category,
-        available: formData.available,
-        unit: formData.unit || "UNITE",
-        restaurant: user.restaurant_id,
+      // Create FormData
+      const formDataToSend = new FormData()
+      
+      // Append text fields
+      formDataToSend.append('name', formData.name.trim())
+      formDataToSend.append('description', formData.description.trim())
+      formDataToSend.append('price', formData.price)
+      formDataToSend.append('category', formData.category)
+      formDataToSend.append('available', formData.available.toString())
+      formDataToSend.append('unit', formData.unit || 'UNITE')
+      formDataToSend.append('restaurant', user.restaurant_id.toString())
+
+      // Append image
+      if (formData.image) {
+        const imageData: any = {
+          uri: Platform.OS === 'ios' ? formData.image.uri.replace('file://', '') : formData.image.uri,
+          type: formData.image.type,
+          name: formData.image.name,
+        }
+        formDataToSend.append('image', imageData)
       }
 
-      await productService.createProduct(productData)
+      await productService.createProduct(formDataToSend)
 
       Alert.alert(
         "Success",
@@ -109,7 +174,6 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
           {
             text: "OK",
             onPress: () => {
-              // Navigate back to the menu screen
               navigation.goBack()
             },
           },
@@ -130,10 +194,7 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
         }
       }
       
-      Alert.alert(
-        "Error",
-        errorMessage
-      )
+      Alert.alert("Error", errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -228,6 +289,31 @@ const AddProductScreen: React.FC<Props> = ({ navigation }) => {
             onChangeText={(text) => setFormData({ ...formData, description: text })}
             editable={!isLoading}
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Product Image *</Text>
+          <TouchableOpacity
+            style={[styles.imagePicker, (errors as any).image && styles.inputError]}
+            onPress={pickImage}
+            disabled={isLoading}
+          >
+            {imageUri ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <View style={styles.imageOverlay}>
+                  <MaterialIcons name="edit" size={24} color={COLORS.white} />
+                  <Text style={styles.imageOverlayText}>Change Image</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <MaterialIcons name="add-photo-alternate" size={48} color={COLORS.gray} />
+                <Text style={styles.imagePlaceholderText}>Tap to add product image</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {(errors as any).image && <Text style={styles.errorText}>{(errors as any).image}</Text>}
         </View>
 
         <View style={styles.switchContainer}>
@@ -473,7 +559,52 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
+  imagePicker: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: SPACING.sm,
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+    borderStyle: "dashed",
+  },
+  imagePreviewContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  imagePreview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: SPACING.sm,
+  },
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  imageOverlayText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: "600" as any,
+  },
+  imagePlaceholder: {
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  imagePlaceholderText: {
+    color: COLORS.gray,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    textAlign: "center",
+  },
 })
 
 export default AddProductScreen
-
