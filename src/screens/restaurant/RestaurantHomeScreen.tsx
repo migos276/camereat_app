@@ -183,33 +183,39 @@ const RestaurantHomeScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.emptyText}>No recent orders</Text>
             </View>
           ) : (
-            recentOrders.map((order) => (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.orderCard}
-                onPress={() => navigation.navigate("OrderDetail", { id: order.id })}
-              >
-                <View style={styles.orderInfo}>
-                  <Text style={styles.orderId}>Order #{order.numero}</Text>
-                  <Text style={styles.orderTime}>{formatTimeAgo(order.date_created)}</Text>
-                </View>
-                <View style={styles.orderCustomer}>
-                  <Text style={styles.customerName}>
-                    {order.client_name || `Client #${order.id.slice(-4)}`}
-                  </Text>
-                  <Text style={styles.itemsCount}>
-                    {order.total_amount.toFixed(2)} FCFA
-                  </Text>
-                </View>
-                <View
-                  style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + "20" }]}
+            recentOrders.map((order, index) => {
+              const orderId = order?.id != null ? String(order.id) : ""
+              const clientFallback = orderId ? `Client #${orderId.slice(-4)}` : "Client"
+              const amount = Number(order?.total_amount || 0)
+
+              return (
+                <TouchableOpacity
+                  key={orderId || order.numero || String(index)}
+                  style={styles.orderCard}
+                  onPress={() => orderId && navigation.navigate("OrderDetail", { id: orderId })}
                 >
-                  <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                    {getStatusLabel(order.status)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                  <View style={styles.orderInfo}>
+                    <Text style={styles.orderId}>Order #{order.numero || orderId || "-"}</Text>
+                    <Text style={styles.orderTime}>{formatTimeAgo(order.date_created)}</Text>
+                  </View>
+                  <View style={styles.orderCustomer}>
+                    <Text style={styles.customerName}>
+                      {order.client_name || clientFallback}
+                    </Text>
+                    <Text style={styles.itemsCount}>
+                      {amount.toFixed(2)} FCFA
+                    </Text>
+                  </View>
+                  <View
+                    style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + "20" }]}
+                  >
+                    <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
+                      {getStatusLabel(order.status)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )
+            })
           )}
         </View>
 

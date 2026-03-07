@@ -16,13 +16,14 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
   const getProgress = () => {
     if (!activeDelivery) return 0
     switch (activeDelivery.status) {
-      case "accepted":
-        return 0.2
-      case "picked_up":
-        return 0.6
-      case "at_delivery_location":
+      case "LIVREUR_ASSIGNE":
+        return 0.3
+      case "EN_ROUTE_COLLECTE":
+      case "COLLECTEE":
         return 0.8
-      case "delivered":
+      case "EN_LIVRAISON":
+        return 0.9
+      case "LIVREE":
         return 1
       default:
         return 0
@@ -32,7 +33,7 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
   const handleUpdateStatus = async (newStatus: string) => {
     try {
       await dispatch(updateDeliveryStatus({ id: activeDelivery!.id, status: newStatus })).unwrap()
-      if (newStatus === "delivered") {
+      if (newStatus === "LIVREE" || newStatus.toLowerCase() === "delivered") {
         Alert.alert("Success", "Delivery completed successfully!", [
           { text: "OK", onPress: () => navigation.navigate("LivreurHome") },
         ])
@@ -60,11 +61,13 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
     )
   }
 
+  const deliveryRef = activeDelivery.order_id || String(activeDelivery.id || "").slice(0, 8)
+
   return (
     <View style={styles.container}>
       <Header
         title="Active Delivery"
-        subtitle={`Order #${activeDelivery.order_id || activeDelivery.id.slice(0, 8)}`}
+        subtitle={`Order #${deliveryRef}`}
         onBackPress={() => navigation.goBack()}
         userType="livreur"
       />
@@ -92,12 +95,12 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
           <ProgressBar progress={getProgress()} color={COLORS.LIVREUR_PRIMARY} />
           <View style={styles.progressSteps}>
             {[
-              { label: "Pickup", done: activeDelivery.status !== "accepted" },
+              { label: "Pickup", done: activeDelivery.status !== "LIVREUR_ASSIGNE" },
               {
                 label: "Transit",
-                done: activeDelivery.status === "at_delivery_location" || activeDelivery.status === "delivered",
+                done: activeDelivery.status === "EN_ROUTE_COLLECTE" || activeDelivery.status === "COLLECTEE" || activeDelivery.status === "EN_LIVRAISON" || activeDelivery.status === "LIVREE",
               },
-              { label: "Delivery", done: activeDelivery.status === "delivered" },
+              { label: "Delivery", done: activeDelivery.status === "LIVREE" },
             ].map((step, idx) => (
               <View key={idx} style={styles.progressStep}>
                 <View
@@ -110,33 +113,11 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
         </Card>
 
         <Card style={styles.actionCard}>
-          {activeDelivery.status === "accepted" && (
+          {activeDelivery.status !== "LIVREE" && (
             <>
-              <Text style={styles.actionTitle}>Next Step: Pickup Order</Text>
-              <Text style={styles.actionDesc}>Arrive at the restaurant and pick up the order</Text>
-              <Button
-                title="Order Picked Up"
-                color={COLORS.LIVREUR_PRIMARY}
-                onPress={() => handleUpdateStatus("picked_up")}
-              />
-            </>
-          )}
-          {activeDelivery.status === "picked_up" && (
-            <>
-              <Text style={styles.actionTitle}>Next Step: Delivering</Text>
-              <Text style={styles.actionDesc}>Head to the customer's location</Text>
-              <Button
-                title="Arrived at Location"
-                color={COLORS.LIVREUR_PRIMARY}
-                onPress={() => handleUpdateStatus("at_delivery_location")}
-              />
-            </>
-          )}
-          {activeDelivery.status === "at_delivery_location" && (
-            <>
-              <Text style={styles.actionTitle}>Next Step: Hand over</Text>
-              <Text style={styles.actionDesc}>Complete the delivery to the customer</Text>
-              <Button title="Confirm Delivery" color={COLORS.SUCCESS} onPress={() => handleUpdateStatus("delivered")} />
+              <Text style={styles.actionTitle}>Finaliser la commande</Text>
+              <Text style={styles.actionDesc}>Confirmez que la commande a bien été livrée au client</Text>
+              <Button title="Confirmer la livraison" color={COLORS.SUCCESS} onPress={() => handleUpdateStatus("LIVREE")} />
             </>
           )}
         </Card>
@@ -173,7 +154,7 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
           {activeDelivery.items.map((item, idx) => (
             <View key={idx} style={styles.orderItem}>
               <View style={styles.orderItemQty}>
-                <Text style={styles.orderItemQtyText}>x{item.qty}</Text>
+                <Text style={styles.orderItemQtyText}>x{(item as any).quantity || (item as any).qty || 1}</Text>
               </View>
               <Text style={styles.orderItemName}>{item.name}</Text>
             </View>

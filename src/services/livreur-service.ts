@@ -28,7 +28,9 @@ export const livreurService = {
   },
 
   async acceptDelivery(id: string): Promise<Delivery> {
-    const response = await api.post<Delivery>(ENDPOINTS.LIVREURS_ACCEPT_DELIVERY(id))
+    const response = await api.post<Delivery>(ENDPOINTS.LIVREURS_ACCEPT_DELIVERY(id), {
+      commande_id: id,
+    })
     return response.data
   },
 
@@ -44,9 +46,14 @@ export const livreurService = {
   },
 
   async updateDeliveryStatus(id: string, status: string): Promise<Delivery> {
-    const response = await api.post<Delivery>(ENDPOINTS.LIVREURS_DELIVERY_STATUS(id), {
-      status,
-    })
+    const normalizedStatus = status.toUpperCase()
+    const isDelivered = normalizedStatus === "LIVREE" || status.toLowerCase() === "delivered"
+
+    if (!isDelivered) {
+      throw new Error("Only delivered status updates are supported.")
+    }
+
+    const response = await api.post<Delivery>(ENDPOINTS.ORDERS_MARK_DELIVERED(id))
     return response.data
   },
 

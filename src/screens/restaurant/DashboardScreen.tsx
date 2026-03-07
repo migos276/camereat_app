@@ -203,23 +203,28 @@ export const RestaurantDashboardScreen = ({ navigation }: { navigation: any }) =
                 <Text style={styles.seeAllText}>Voir tout</Text>
               </TouchableOpacity>
             </View>
-            {recentOrders.slice(0, 3).map((order, index) => (
-              <View key={order.id || index} style={styles.orderItem}>
-                <View style={styles.orderInfo}>
-                  <Text style={styles.orderId}>Commande #{order.id?.slice(-6) || order.id}</Text>
-                  <Text style={styles.orderTime}>
-                    {order.date_created ? new Date(order.date_created).toLocaleTimeString() : ''}
-                  </Text>
+            {recentOrders.slice(0, 3).map((order, index) => {
+              const orderId = order?.id != null ? String(order.id) : ""
+              const amount = Number(order?.total_amount || 0)
+
+              return (
+                <View key={orderId || String(index)} style={styles.orderItem}>
+                  <View style={styles.orderInfo}>
+                    <Text style={styles.orderId}>Commande #{orderId ? orderId.slice(-6) : "-"}</Text>
+                    <Text style={styles.orderTime}>
+                      {order.date_created ? new Date(order.date_created).toLocaleTimeString() : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.orderStatus}>
+                    <Text style={styles.orderTotal}>{amount.toLocaleString()} FCFA</Text>
+                    <Badge 
+                      text={order.status === 'completed' ? 'Terminé' : order.status === 'cancelled' ? 'Annulé' : 'En attente'} 
+                      variant={order.status === 'completed' ? 'success' : order.status === 'cancelled' ? 'error' : 'warning'} 
+                    />
+                  </View>
                 </View>
-                <View style={styles.orderStatus}>
-                  <Text style={styles.orderTotal}>{order.total_amount?.toLocaleString()} FCFA</Text>
-                  <Badge 
-                    text={order.status === 'completed' ? 'Terminé' : order.status === 'cancelled' ? 'Annulé' : 'En attente'} 
-                    variant={order.status === 'completed' ? 'success' : order.status === 'cancelled' ? 'error' : 'warning'} 
-                  />
-                </View>
-              </View>
-            ))}
+              )
+            })}
           </Card>
         )}
 

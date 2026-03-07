@@ -182,8 +182,24 @@ export const restaurantService = {
     return response.data
   },
 
+  async markOrderAsReady(orderId: string): Promise<RestaurantOrder> {
+    const response = await api.post<RestaurantOrder>(ENDPOINTS.ORDERS_MARK_READY(orderId))
+    return response.data
+  },
+
+  async acceptOrder(orderId: string): Promise<RestaurantOrder> {
+    const response = await api.post<RestaurantOrder>(ENDPOINTS.ORDERS_ACCEPT(orderId))
+    return response.data
+  },
+
+  async startOrderPreparation(orderId: string): Promise<RestaurantOrder> {
+    const response = await api.post<RestaurantOrder>(ENDPOINTS.ORDERS_START_PREPARATION(orderId))
+    return response.data
+  },
+
   async getMyRestaurant(): Promise<Restaurant> {
     const response = await api.get<Restaurant>(ENDPOINTS.RESTAURANTS_MY_RESTAURANT)
+    console.log("[RestaurantService] getMyRestaurant response:", response.data)
     return response.data
   },
 
@@ -244,43 +260,81 @@ export const restaurantService = {
   },
 
   async uploadLogo(uri: string): Promise<Restaurant> {
-    const filename = uri.split('/').pop() || 'logo.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    console.log("[RestaurantService] uploadLogo called with URI:", uri)
+    
+    // Extract filename from URI
+    const uriParts = uri.split('/')
+    let filename = uriParts[uriParts.length - 1] || 'logo.jpg'
+    
+    // Remove query parameters if present
+    if (filename.includes('?')) {
+      filename = filename.split('?')[0]
+    }
+    
+    console.log("[RestaurantService] Extracted filename:", filename)
+    
+    const match = /\.(\w+)$/.exec(filename)
+    const extension = match ? match[1].toLowerCase() : 'jpg'
+    const type = `image/${extension}`
+    
+    console.log("[RestaurantService] File type:", type)
 
-    const formData = new FormData();
+    const formData = new FormData()
     formData.append('logo', {
       uri,
       name: filename,
       type,
-    } as any);
+    } as any)
+    
+    console.log("[RestaurantService] FormData created, making API call to:", ENDPOINTS.RESTAURANTS_UPLOAD_LOGO)
 
     const response = await api.post<Restaurant>(ENDPOINTS.RESTAURANTS_UPLOAD_LOGO, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    });
-    return response.data;
+    })
+    
+    console.log("[RestaurantService] uploadLogo response:", response.data)
+    return response.data
   },
 
   async uploadCoverImage(uri: string): Promise<Restaurant> {
-    const filename = uri.split('/').pop() || 'cover.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    console.log("[RestaurantService] uploadCoverImage called with URI:", uri)
+    
+    // Extract filename from URI
+    const uriParts = uri.split('/')
+    let filename = uriParts[uriParts.length - 1] || 'cover.jpg'
+    
+    // Remove query parameters if present
+    if (filename.includes('?')) {
+      filename = filename.split('?')[0]
+    }
+    
+    console.log("[RestaurantService] Extracted filename:", filename)
+    
+    const match = /\.(\w+)$/.exec(filename)
+    const extension = match ? match[1].toLowerCase() : 'jpg'
+    const type = `image/${extension}`
+    
+    console.log("[RestaurantService] File type:", type)
 
-    const formData = new FormData();
+    const formData = new FormData()
     formData.append('cover_image', {
       uri,
       name: filename,
       type,
-    } as any);
+    } as any)
+    
+    console.log("[RestaurantService] FormData created, making API call to:", ENDPOINTS.RESTAURANTS_UPLOAD_COVER)
 
     const response = await api.post<Restaurant>(ENDPOINTS.RESTAURANTS_UPLOAD_COVER, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    });
-    return response.data;
+    })
+    
+    console.log("[RestaurantService] uploadCoverImage response:", response.data)
+    return response.data
   },
 
   async registerRestaurantProfile(data: {

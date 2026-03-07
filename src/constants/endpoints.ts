@@ -64,6 +64,10 @@ export const ENDPOINTS = {
   ORDERS_CANCEL: (id: string) => `orders/commandes/${id}/annuler/`,
   ORDERS_TRACK: (id: string) => `orders/commandes/${id}/tracking/`,
   ORDERS_VALIDATE_OTP: (id: string) => `orders/commandes/${id}/valider_livraison/`,
+  ORDERS_ACCEPT: (id: string) => `orders/commandes/${id}/accepter/`,
+  ORDERS_START_PREPARATION: (id: string) => `orders/commandes/${id}/commencer-preparation/`,
+  ORDERS_MARK_READY: (id: string) => `orders/commandes/${id}/marquer-prete/`,
+  ORDERS_MARK_DELIVERED: (id: string) => `orders/commandes/${id}/marquer-livree/`,
   ORDERS_RATE: (id: string) => `orders/commandes/${id}/rate/`,
   ORDERS_CHECK_PAYMENT: (id: string) => `orders/commandes/${id}/check_payment/`,
 
@@ -101,5 +105,9 @@ export const ENDPOINTS = {
   // Payments (under api/payments/)
   PAYMENTS_INITIATE: "payments/initiate/",
   PAYMENTS_INITIATE_COLLECT: "payments/initiate-collect/",
+  PAYMENTS_WITHDRAW: "payments/withdraw/",
   PAYMENTS_STATUS: "payments/status/",
+  PAYMENTS_BALANCE: "payments/balance/",
+  PAYMENTS_WEBHOOK: "payments/webhook/",
+  PAYMENTS_VALIDATE_PHONE: "payments/validate-phone/",
 }

@@ -45,6 +45,7 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [detectedOperator, setDetectedOperator] = useState<string | null>(null)
 
   // Get cart data from Redux
   const cart = useSelector((state: RootState) => state.cart)
@@ -102,11 +103,42 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
     return COLORS.TEXT_SECONDARY
   }
 
-  const validatePhoneNumber = (phone: string): boolean => {
+  const validatePhoneNumber = (phone: string): { valid: boolean; operator: string | null; message: string } => {
     // Remove spaces and dashes
     const cleaned = phone.replace(/[\s-]/g, '')
-    // Check if it's a valid Cameroon number (starts with 237 or 6)
-    return /^237[6-9]\d{7}$/.test(cleaned) || /^6\d{8}$/.test(cleaned)
+    
+    // Add country code if needed
+    let formatted = cleaned
+    if (cleaned.startsWith('6') && cleaned.length === 9) {
+      formatted = '237' + cleaned
+    } else if (cleaned.startsWith('+237')) {
+      formatted = cleaned.replace('+237', '237')
+    }
+    
+    // Check if it's a valid Cameroon number - accept all MTN and Orange prefixes
+    // MTN: 650-679, Orange: 680-699
+    if (!/^237([6][5-9]\d|[7][0-9]\d|[6][7][0-9]|69\d)\d{6}$/.test(formatted)) {
+      // Fallback: accept simple format 2376XXXXXXXX or 2377XXXXXXXX
+      if (!/^237[6-9]\d{7}$/.test(formatted)) {
+        return { valid: false, operator: null, message: 'Numéro invalide. Format: 6XXXXXXXX' }
+      }
+    }
+    
+    // Get the 3-digit prefix after 237
+    const prefix = formatted.substring(3, 6)
+    
+    // MTN prefixes (650-679)
+    const mtnPrefixes = ['650', '651', '652', '653', '654', '670', '671', '672', '673', '674', '675', '676', '677', '678', '679']
+    // Orange prefixes (680-699)
+    const orangePrefixes = ['655', '656', '657', '658', '659', '680', '681', '682', '683', '684', '685', '686', '687', '688', '689', '690', '691', '692', '693', '694', '695', '696', '697', '698', '699']
+    
+    if (mtnPrefixes.includes(prefix)) {
+      return { valid: true, operator: 'MTN', message: 'Numéro MTN détecté' }
+    } else if (orangePrefixes.includes(prefix)) {
+      return { valid: true, operator: 'ORANGE', message: 'Numéro Orange détecté' }
+    }
+    
+    return { valid: false, operator: null, message: 'Numéro non reconnu comme MTN ou Orange' }
   }
 
   const formatPhoneNumber = (phone: string): string => {
@@ -126,8 +158,9 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
         Alert.alert("Erreur", "Veuillez entrer votre numéro de téléphone mobile money")
         return
       }
-      if (!validatePhoneNumber(phoneNumber)) {
-        Alert.alert("Erreur", "Veuillez entrer un numéro valide (ex: 6XXXXXXXX)")
+      const phoneValidation = validatePhoneNumber(phoneNumber)
+      if (!phoneValidation.valid) {
+        Alert.alert("Erreur", phoneValidation.message || "Veuillez entrer un numéro valide (ex: 6XXXXXXXX)")
         return
       }
     }
@@ -427,7 +460,16 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
                 placeholder={selectedPayment === "ORANGE_MONEY" ? "Numéro Orange Money (ex: 6XXXXXXXX)" : "Numéro MTN MoMo (ex: 6XXXXXXXX)"}
                 keyboardType="phone-pad"
                 value={phoneNumber}
-                onChangeText={setPhoneNumber}
+                onChangeText={(text) => {
+                  setPhoneNumber(text)
+                  // Detect operator as user types
+                  if (text.length >= 3) {
+                    const validation = validatePhoneNumber(text)
+                    setDetectedOperator(validation.valid ? validation.operator : null)
+                  } else {
+                    setDetectedOperator(null)
+                  }
+                }}
                 style={[
                   styles.phoneInput,
                   {
@@ -435,6 +477,21 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
                   },
                 ]}
               />
+            </View>
+          )}
+          
+          {/* Detected operator indicator */}
+          {isMobileMoney() && detectedOperator && (
+            <View style={[styles.operatorBadge, { 
+              backgroundColor: detectedOperator === 'MTN' ? '#FFCC00' : '#FF6600' 
+            }]}>
+              <Text style={{ 
+                color: detectedOperator === 'MTN' ? '#000' : '#FFF',
+                fontWeight: '600',
+                fontSize: 12
+              }}>
+                {detectedOperator} détecté
+              </Text>
             </View>
           )}
         </Card>
@@ -676,5 +733,12 @@ const styles = StyleSheet.create({
     flex: 1,
     color: COLORS.DANGER,
     fontSize: 14,
+  },
+  operatorBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
   },
 })

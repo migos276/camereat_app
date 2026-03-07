@@ -329,7 +329,7 @@ const livreurSlice = createSlice({
       .addCase(updateDeliveryStatus.fulfilled, (state, action) => {
         state.isLoading = false
         state.activeDelivery = action.payload
-        if (action.payload.status === "delivered") {
+        if (action.payload.status === "delivered" || action.payload.status === "LIVREE") {
           state.deliveryHistory.unshift(action.payload)
           state.activeDelivery = null
         }

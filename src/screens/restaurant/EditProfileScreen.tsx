@@ -229,6 +229,8 @@ export const EditProfileScreen = ({ navigation }: Props) => {
         setUploadingCover(true)
       }
 
+      console.log(`[EDIT_PROFILE] Uploading ${type} from URI:`, uri)
+      
       let updatedRestaurant: Restaurant
       if (type === 'logo') {
         updatedRestaurant = await restaurantService.uploadLogo(uri)
@@ -236,15 +238,22 @@ export const EditProfileScreen = ({ navigation }: Props) => {
         updatedRestaurant = await restaurantService.uploadCoverImage(uri)
       }
 
+      console.log(`[EDIT_PROFILE] Upload response for ${type}:`, updatedRestaurant)
+      console.log(`[EDIT_PROFILE] Updated ${type} value:`, type === 'logo' ? updatedRestaurant.logo : updatedRestaurant.cover_image)
+
       setRestaurant(updatedRestaurant)
       
       // Update the URI to the full URL from server
       if (type === 'logo' && updatedRestaurant.logo) {
         const fullUrl = getImageUrl(updatedRestaurant.logo)
+        console.log(`[EDIT_PROFILE] Logo full URL:`, fullUrl)
         setLogoUri(fullUrl)
       } else if (type === 'cover_image' && updatedRestaurant.cover_image) {
         const fullUrl = getImageUrl(updatedRestaurant.cover_image)
+        console.log(`[EDIT_PROFILE] Cover full URL:`, fullUrl)
         setCoverUri(fullUrl)
+      } else {
+        console.log(`[EDIT_PROFILE] WARNING: ${type} is null or undefined in response!`)
       }
       
       Alert.alert('Success', `${type === 'logo' ? 'Logo' : 'Cover image'} uploaded successfully!`)

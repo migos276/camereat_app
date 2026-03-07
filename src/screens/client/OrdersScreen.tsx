@@ -95,7 +95,7 @@ const OrdersScreen: React.FC<Props> = ({ navigation }) => {
       case "delivered":
         return COLORS.gray
       case "cancelled":
-        return COLORS.error
+        return COLORS.danger
       default:
         return COLORS.gray
     }
@@ -214,7 +214,7 @@ const OrdersScreen: React.FC<Props> = ({ navigation }) => {
                   // Navigate to Home tab using parent navigator
                   const parent = navigation.getParent()
                   if (parent) {
-                    parent.jumpTo("HomeStack")
+                    parent.navigate("HomeStack")
                   } else {
                     // Fallback: navigate within current stack
                     navigation.navigate("Home")
@@ -245,11 +245,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize["2xl"],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: "700",
     color: COLORS.dark,
   },
   headerSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray,
     marginTop: SPACING.xs,
   },
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontWeight: "500",
   },
   filterTextActive: {
     color: COLORS.white,
@@ -305,11 +305,11 @@ const styles = StyleSheet.create({
   orderId: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.gray,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontWeight: "500",
   },
   restaurantName: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600",
     color: COLORS.dark,
     marginTop: SPACING.xs,
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600",
   },
   orderDetails: {
     flexDirection: "row",
@@ -340,13 +340,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   detailValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "500",
     color: COLORS.dark,
   },
   totalValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "700",
     color: COLORS.primary,
   },
   actionRow: {
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   },
   viewDetailsText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600",
     color: COLORS.primary,
   },
   trackButton: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   trackButtonText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600",
     color: COLORS.white,
   },
   emptyContainer: {
@@ -397,8 +397,8 @@ const styles = StyleSheet.create({
     borderRadius: SPACING.sm,
   },
   browseButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.white,
   },
 })

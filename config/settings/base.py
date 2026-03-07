@@ -196,6 +196,13 @@ LOGGING = {
 }
 
 # CamPay Configuration
-CAMPAY_APP_USERNAME = config('CAMPAY_APP_USERNAME', default='MqQym06nicpCYvd13-l6dzfZ-h7BNyyuh4btJgH0Il2EElwblAynBeMZ-rQ1c4Fge_WcRYCLm0awL2GYT4CaUQ')
-CAMPAY_APP_PASSWORD = config('CAMPAY_APP_PASSWORD', default='3TQaTg7tBhjE8HxVgI6J_U9ihN-1qM_UWbivpje6cBWus64scmti7jpBgAS7Sub7A_LSGDNkZo3-dJFQeG3CWg')
-CAMPAY_ENVIRONMENT = config('CAMPAY_ENVIRONMENT', default='DEV')  # Set to 'PROD' in production
+# IMPORTANT: For production, ensure these are set in environment variables
+# Never hardcode production credentials in code!
+CAMPAY_APP_USERNAME = config('CAMPAY_APP_USERNAME', default='')
+CAMPAY_APP_PASSWORD = config('CAMPAY_APP_PASSWORD', default='')
+# Set to 'PROD' for production environment - 'DEV' is for sandbox testing only
+CAMPAY_ENVIRONMENT = config('CAMPAY_ENVIRONMENT', default='PROD')
+
+# Minimum amounts for Campay transactions (in XAF)
+CAMPAY_MIN_COLLECT_AMOUNT = 100  # Minimum for collection
+CAMPAY_MIN_WITHDRAW_AMOUNT = 100  # Minimum for withdrawal

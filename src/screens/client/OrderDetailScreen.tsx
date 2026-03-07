@@ -1,83 +1,86 @@
 "use client"
 
-import React from "react"
-import { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
   View,
   StyleSheet,
   Text,
   TouchableOpacity,
   ScrollView,
-  Image,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from "react-native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
-import { useFocusEffect } from "@react-navigation/native"
 import { MaterialIcons } from "@expo/vector-icons"
-import { useAppDispatch, useAppSelector } from "../../hooks"
-import { cancelOrder } from "../../redux/slices/orderSlice"
+import { useAppDispatch } from "../../hooks"
+import { cancelOrder as cancelOrderAction } from "../../redux/slices/orderSlice"
 import type { ClientStackParamList } from "../../navigation/ClientNavigator"
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/config"
+import { orderService } from "../../services/order-service"
+import type { Order } from "../../types"
 
 type Props = NativeStackScreenProps<ClientStackParamList, "OrderDetail">
 
-interface OrderItem {
+interface OrderItemType {
   id: string
-  name: string
+  produit?: { name?: string }
+  product?: { name?: string }
   quantity: number
-  price: number
-  image?: string
+  line_total: number
 }
 
-interface OrderDetail {
-  id: string
-  restaurantName: string
-  restaurantImage: string
-  status: "pending" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled"
-  items: OrderItem[]
-  subtotal: number
-  deliveryFee: number
-  tax: number
-  total: number
-  deliveryAddress: string
-  estimatedDelivery: string
-  orderDate: string
-  paymentMethod: string
-}
-
-const MOCK_ORDER_DETAIL: OrderDetail = {
-  id: "ORD-001",
-  restaurantName: "Burger Palace",
-  restaurantImage: "https://example.com/burger-palace.jpg",
-  status: "preparing",
-  items: [
-    { id: "1", name: "Classic Burger", quantity: 2, price: 12.99, image: undefined },
-    { id: "2", name: "French Fries", quantity: 1, price: 4.99, image: undefined },
-    { id: "3", name: "Coca Cola", quantity: 2, price: 2.50, image: undefined },
-  ],
-  subtotal: 35.47,
-  deliveryFee: 3.99,
-  tax: 3.18,
-  total: 42.64,
-  deliveryAddress: "123 Main St, Apt 4B, City, State 12345",
-  estimatedDelivery: "45 min",
-  orderDate: "2024-01-15 14:30",
-  paymentMethod: "Credit Card ****4242",
+// Map backend status to frontend status
+const statusMapping: Record<string, string> = {
+  EN_ATTENTE: "pending",
+  ACCEPTEE: "confirmed",
+  EN_PREPARATION: "preparing",
+  PRETE: "ready",
+  LIVREUR_ASSIGNE: "ready",
+  EN_ROUTE_COLLECTE: "preparing",
+  COLLECTEE: "preparing",
+  EN_LIVRAISON: "ready",
+  LIVREE: "delivered",
+  ANNULEE: "cancelled",
+  REFUSEE: "cancelled",
 }
 
 const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params
   const dispatch = useAppDispatch()
-  const { user } = useAppSelector((state) => state.auth)
-  const [order, setOrder] = useState<OrderDetail | null>(MOCK_ORDER_DETAIL)
+  
+  const [order, setOrder] = useState<Order | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+
+  useEffect(() => {
+    const fetchOrderDetail = async () => {
+      try {
+        setIsLoading(true)
+        const orderData = await orderService.getOrder(id)
+        setOrder(orderData)
+      } catch (err: any) {
+        console.error("Error fetching order detail:", err)
+        setError(err.message || "Failed to load order details")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchOrderDetail()
+  }, [id])
+
+  const getFrontendStatus = (backendStatus: string): string => {
+    return statusMapping[backendStatus] || "pending"
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
         return COLORS.warning
       case "confirmed":
-        return COLORS.info
+        return COLORS.primary
       case "preparing":
         return COLORS.primary
       case "ready":
@@ -85,7 +88,7 @@ const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       case "delivered":
         return COLORS.gray
       case "cancelled":
-        return COLORS.error
+        return COLORS.danger
       default:
         return COLORS.gray
     }
@@ -96,7 +99,27 @@ const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return steps.indexOf(status) + 1
   }
 
+  const getStatusText = (status: string) => {
+    const statusTexts: Record<string, string> = {
+      pending: "Pending",
+      confirmed: "Confirmed",
+      preparing: "Preparing",
+      ready: "Ready",
+      delivered: "Delivered",
+      cancelled: "Cancelled",
+    }
+    return statusTexts[status] || status
+  }
+
   const handleCancelOrder = () => {
+    if (!order) return
+    
+    // Only allow cancellation for certain statuses
+    if (order.status !== 'EN_ATTENTE' && order.status !== 'ACCEPTEE') {
+      Alert.alert("Cannot Cancel", "This order can no longer be cancelled.")
+      return
+    }
+
     Alert.alert(
       "Cancel Order",
       "Are you sure you want to cancel this order?",
@@ -105,10 +128,19 @@ const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         {
           text: "Cancel Order",
           style: "destructive",
-          onPress: () => {
-            // dispatch(cancelOrder(id))
-            Alert.alert("Order Cancelled", "Your order has been cancelled successfully.")
-            navigation.goBack()
+          onPress: async () => {
+            try {
+              setCancelling(true)
+              await orderService.cancelOrder(id)
+              Alert.alert("Order Cancelled", "Your order has been cancelled successfully.")
+              // Refresh order data
+              const updatedOrder = await orderService.getOrder(id)
+              setOrder(updatedOrder)
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to cancel order")
+            } finally {
+              setCancelling(false)
+            }
           },
         },
       ],
@@ -116,54 +148,87 @@ const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   const handleReorder = () => {
+    if (!order || !order.items) return
+    
     Alert.alert("Reorder", "Add all items to cart?", [
       { text: "No", style: "cancel" },
       {
         text: "Yes",
         onPress: () => {
-          // Add items to cart
+          // TODO: Add items to cart functionality
           Alert.alert("Success", "Items added to cart!")
         },
       },
     ])
   }
 
-  const renderOrderItem = ({ item }: { item: OrderItem }) => (
+  const handleTrackOrder = () => {
+    navigation.navigate("OrderTracking", { id })
+  }
+
+  const renderOrderItem = ({ item, index }: { item: OrderItemType; index: number }) => (
     <View style={styles.orderItem}>
       <View style={styles.itemInfo}>
         <Text style={styles.itemQuantity}>{item.quantity}x</Text>
-        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemName}>
+          {item.produit?.name || item.product?.name || `Product ${index + 1}`}
+        </Text>
       </View>
-      <Text style={styles.itemPrice}>{(item.price * item.quantity).toFixed(2)} FCFA</Text>
+      <Text style={styles.itemPrice}>
+        {parseFloat(String(item.line_total || 0)).toFixed(2)} FCFA
+      </Text>
     </View>
   )
 
-  if (!order) {
+  if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <Text>Order not found</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading order details...</Text>
       </View>
     )
   }
 
-  const statusStep = getStatusStep(order.status)
+  if (error || !order) {
+    return (
+      <View style={styles.errorContainer}>
+        <MaterialIcons name="error-outline" size={48} color={COLORS.danger} />
+        <Text style={styles.errorText}>{error || "Order not found"}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  const frontendStatus = getFrontendStatus(order.status)
+  const statusStep = getStatusStep(frontendStatus)
+  const items = order.items || []
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.orderInfo}>
-          <Text style={styles.orderId}>{order.id}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + "20" }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+          <Text style={styles.orderId}>{order.numero || order.id}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(frontendStatus) + "20" }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(frontendStatus) }]}>
+              {getStatusText(frontendStatus)}
             </Text>
           </View>
         </View>
-        <Text style={styles.orderDate}>{order.orderDate}</Text>
+        <Text style={styles.orderDate}>
+          {order.date_created ? new Date(order.date_created).toLocaleDateString('fr-FR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : ''}
+        </Text>
       </View>
 
       {/* Order Progress */}
-      {order.status !== "cancelled" && order.status !== "delivered" && (
+      {frontendStatus !== "cancelled" && frontendStatus !== "delivered" && (
         <View style={styles.progressCard}>
           <Text style={styles.progressTitle}>Order Progress</Text>
           <View style={styles.progressSteps}>
@@ -208,52 +273,73 @@ const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             ))}
           </View>
-          {order.estimatedDelivery && (
+          {order.estimated_duration_minutes && (
             <Text style={styles.estimatedDelivery}>
-              Estimated Delivery: {order.estimatedDelivery}
+              Estimated Delivery: {order.estimated_duration_minutes} minutes
             </Text>
           )}
         </View>
       )}
 
+      {/* Track Order Button */}
+      {frontendStatus !== "cancelled" && frontendStatus !== "delivered" && (
+        <TouchableOpacity style={styles.trackButton} onPress={handleTrackOrder}>
+          <MaterialIcons name="local-shipping" size={20} color={COLORS.white} />
+          <Text style={styles.trackButtonText}>Track Order</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Restaurant Info */}
-      <View style={styles.restaurantCard}>
-        <View style={styles.restaurantInfo}>
-          <View style={styles.restaurantIcon}>
-            <MaterialIcons name="restaurant" size={24} color={COLORS.primary} />
-          </View>
-          <View style={styles.restaurantDetails}>
-            <Text style={styles.restaurantName}>{order.restaurantName}</Text>
-            <Text style={styles.deliveryAddress}>{order.deliveryAddress}</Text>
+      {order.restaurant_name && (
+        <View style={styles.restaurantCard}>
+          <View style={styles.restaurantInfo}>
+            <View style={styles.restaurantIcon}>
+              <MaterialIcons name="restaurant" size={24} color={COLORS.primary} />
+            </View>
+            <View style={styles.restaurantDetails}>
+              <Text style={styles.restaurantName}>{order.restaurant_name}</Text>
+              <Text style={styles.deliveryAddress}>{order.delivery_address_text}</Text>
+            </View>
           </View>
         </View>
-      </View>
+      )}
 
       {/* Order Items */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Order Items</Text>
-        <FlatList
-          data={order.items}
-          keyExtractor={(item) => item.id}
-          renderItem={renderOrderItem}
-          scrollEnabled={false}
-        />
+        {items.length > 0 ? (
+          <FlatList
+            data={items.map(item => ({
+              id: item.id,
+              product: item.product,
+              quantity: item.quantity,
+              line_total: item.line_total,
+            }))}
+            keyExtractor={(item, index) => item.id || index.toString()}
+            renderItem={renderOrderItem}
+            scrollEnabled={false}
+          />
+        ) : (
+          <Text style={styles.noItemsText}>No items available</Text>
+        )}
         <View style={styles.divider} />
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
-          <Text style={styles.summaryValue}>{order.subtotal.toFixed(2)} FCFA</Text>
+          <Text style={styles.summaryValue}>
+            {parseFloat(String(order.products_amount || 0)).toFixed(2)} FCFA
+          </Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Delivery Fee</Text>
-          <Text style={styles.summaryValue}>{order.deliveryFee.toFixed(2)} FCFA</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Tax</Text>
-          <Text style={styles.summaryValue}>{order.tax.toFixed(2)} FCFA</Text>
+          <Text style={styles.summaryValue}>
+            {parseFloat(String(order.delivery_fee || 0)).toFixed(2)} FCFA
+          </Text>
         </View>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{order.total.toFixed(2)} FCFA</Text>
+          <Text style={styles.totalValue}>
+            {parseFloat(String(order.total_amount || 0)).toFixed(2)} FCFA
+          </Text>
         </View>
       </View>
 
@@ -263,25 +349,51 @@ const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.deliveryInfo}>
           <View style={styles.infoRow}>
             <MaterialIcons name="location-on" size={20} color={COLORS.gray} />
-            <Text style={styles.infoText}>{order.deliveryAddress}</Text>
+            <Text style={styles.infoText}>{order.delivery_address_text || "Address not specified"}</Text>
           </View>
           <View style={styles.infoRow}>
             <MaterialIcons name="payment" size={20} color={COLORS.gray} />
-            <Text style={styles.infoText}>{order.paymentMethod}</Text>
+            <Text style={styles.infoText}>
+              {order.payment_mode === 'ESPECES' ? 'Cash' : 
+               order.payment_mode === 'CARTE' ? 'Card' : 
+               order.payment_mode === 'MOBILE_MONEY' ? 'Mobile Money' : order.payment_mode}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="verified" size={20} color={COLORS.gray} />
+            <Text style={styles.infoText}>
+              Payment Status: {order.payment_status === 'PAYE' ? 'Paid' : 'Pending'}
+            </Text>
           </View>
         </View>
       </View>
 
+      {/* Special Instructions */}
+      {order.special_instructions && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Special Instructions</Text>
+          <Text style={styles.specialInstructions}>{order.special_instructions}</Text>
+        </View>
+      )}
+
       {/* Action Buttons */}
-      {order.status !== "cancelled" && order.status !== "delivered" && (
+      {(frontendStatus === "pending" || frontendStatus === "confirmed") && (
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancelOrder}>
-            <Text style={styles.cancelButtonText}>Cancel Order</Text>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={handleCancelOrder}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <ActivityIndicator size="small" color={COLORS.danger} />
+            ) : (
+              <Text style={styles.cancelButtonText}>Cancel Order</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
 
-      {order.status === "delivered" && (
+      {frontendStatus === "delivered" && (
         <View style={styles.actions}>
           <TouchableOpacity style={styles.reorderButton} onPress={handleReorder}>
             <Text style={styles.reorderButtonText}>Order Again</Text>
@@ -303,10 +415,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: COLORS.background,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+    padding: 32,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.danger,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontWeight: "600",
   },
   header: {
     backgroundColor: COLORS.white,
@@ -322,7 +464,7 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: "700",
     color: COLORS.dark,
   },
   statusBadge: {
@@ -332,7 +474,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: "600",
   },
   orderDate: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -345,8 +487,8 @@ const styles = StyleSheet.create({
     borderRadius: SPACING.md,
   },
   progressTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.dark,
     marginBottom: SPACING.md,
   },
@@ -382,14 +524,30 @@ const styles = StyleSheet.create({
   estimatedDelivery: {
     textAlign: "center",
     marginTop: SPACING.md,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.primary,
+  },
+  trackButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    backgroundColor: COLORS.primary,
+    borderRadius: SPACING.md,
+    gap: SPACING.sm,
+  },
+  trackButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
+    color: COLORS.white,
   },
   restaurantCard: {
     backgroundColor: COLORS.white,
     marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
     padding: SPACING.md,
     borderRadius: SPACING.md,
   },
@@ -410,8 +568,8 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.md,
   },
   restaurantName: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.dark,
   },
   deliveryAddress: {
@@ -422,12 +580,13 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: COLORS.white,
     margin: SPACING.md,
+    marginBottom: 0,
     padding: SPACING.md,
     borderRadius: SPACING.md,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.dark,
     marginBottom: SPACING.md,
   },
@@ -443,19 +602,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemQuantity: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.primary,
     width: 30,
   },
   itemName: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.dark,
   },
   itemPrice: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "500",
     color: COLORS.dark,
+  },
+  noItemsText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.gray,
+    textAlign: "center",
+    paddingVertical: SPACING.md,
   },
   divider: {
     height: 1,
@@ -468,11 +633,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   summaryLabel: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.gray,
   },
   summaryValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.dark,
   },
   totalRow: {
@@ -485,12 +650,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: "700",
     color: COLORS.dark,
   },
   totalValue: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontWeight: "700",
     color: COLORS.primary,
   },
   deliveryInfo: {
@@ -503,8 +668,13 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.dark,
+  },
+  specialInstructions: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: COLORS.dark,
+    fontStyle: "italic",
   },
   actions: {
     flexDirection: "row",
@@ -516,13 +686,13 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.error,
+    borderColor: COLORS.danger,
     borderRadius: SPACING.md,
   },
   cancelButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.error,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
+    color: COLORS.danger,
   },
   reorderButton: {
     flex: 1,
@@ -532,8 +702,8 @@ const styles = StyleSheet.create({
     borderRadius: SPACING.md,
   },
   reorderButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.white,
   },
   supportButton: {
@@ -544,11 +714,12 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   supportButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontWeight: "600",
     color: COLORS.primary,
     marginLeft: SPACING.sm,
   },
 })
 
 export default OrderDetailScreen
+

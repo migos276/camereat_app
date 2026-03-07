@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -11,8 +12,8 @@ from apps.orders.serializers import (
     CommandeCreateSerializer, CommandeDetailSerializer,
     LigneCommandeSerializer, AvisSerializer, PromotionSerializer
 )
-from apps.users.permissions import IsClient
-from apps.payments.services import payment_service
+from apps.users.permissions import IsClient, IsRestaurantOwner
+from apps.payments.services import payment_service, PaymentService
 from django.conf import settings
 import logging
 from decimal import Decimal
@@ -29,20 +30,33 @@ class CommandePagination(PageNumberPagination):
 
 
 class CommandeViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, IsClient]
     pagination_class = CommandePagination
     
-    def get_queryset(self):
-        queryset = Commande.objects.filter(client=self.request.user)
-        status_param = self.request.query_params.get('status')
-        if status_param:
-            queryset = queryset.filter(status=status_param)
-        return queryset
+    def get_permissions(self):
+        """Allow both clients and restaurant owners"""
+        if self.action in ['create', 'list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated()]
     
     def get_serializer_class(self):
         if self.action == 'create':
             return CommandeCreateSerializer
         return CommandeDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on user type"""
+        user = self.request.user
+        
+        # If user is a client, return their orders
+        if user.user_type == 'CLIENT':
+            return Commande.objects.filter(client=user)
+        
+        # If user is a restaurant owner, return orders for their restaurant
+        if hasattr(user, 'restaurant'):
+            return Commande.objects.filter(restaurant=user.restaurant)
+        
+        # Default: return empty queryset
+        return Commande.objects.none()
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -63,16 +77,19 @@ class CommandeViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST
                         )
 
-                    phone = payment_phone.replace(' ', '').replace('-', '')
-                    if phone.startswith('+237'):
-                        phone = phone.replace('+237', '237')
-                    elif not phone.startswith('237'):
-                        if phone.startswith('6'):
-                            phone = '237' + phone
-
-                    if not phone.isdigit() or len(phone) != 12 or not phone.startswith('2376'):
+                    # Use the improved phone validation from PaymentService
+                    is_valid, phone, operator = PaymentService.validate_phone(payment_phone)
+                    if not is_valid:
                         return Response(
-                            {'error': 'Numéro Mobile Money invalide. Format attendu: 2376XXXXXXXX'},
+                            {'error': 'Numéro Mobile Money invalide. Utilisez un numéro MTN (650-679) ou Orange (655-699) Cameroun.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    # Validate amount is above minimum
+                    is_valid, error_msg = PaymentService.validate_amount(total_amount)
+                    if not is_valid:
+                        return Response(
+                            {'error': error_msg},
                             status=status.HTTP_400_BAD_REQUEST
                         )
 
@@ -147,6 +164,107 @@ class CommandeViewSet(viewsets.ModelViewSet):
         
         return Response(CommandeDetailSerializer(commande).data)
     
+    @action(detail=True, methods=['post'], url_path='accepter')
+    def accepter(self, request, pk=None):
+        """Accept an order - changes status from EN_ATTENTE to ACCEPTEE"""
+        from apps.restaurants.models import Restaurant
+        
+        # Check if user is a restaurant owner
+        if not hasattr(request.user, 'restaurant'):
+            return Response(
+                {'error': 'Vous devez être propriétaire d\'un restaurant pour effectuer cette action.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        commande = self.get_object()
+        
+        # Verify that the order belongs to this restaurant
+        if commande.restaurant != request.user.restaurant:
+            return Response(
+                {'error': 'Cette commande ne appartient pas à votre restaurant.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Only allow accepting if order is in waiting status
+        if commande.status != 'EN_ATTENTE':
+            return Response(
+                {'error': f'Impossible d\'accepter cette commande. Statut actuel: {commande.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        commande.status = 'ACCEPTEE'
+        commande.date_accepted = timezone.now()
+        commande.save()
+        
+        return Response(CommandeDetailSerializer(commande).data)
+    
+    @action(detail=True, methods=['post'], url_path='commencer-preparation')
+    def commencer_preparation(self, request, pk=None):
+        """Start preparing an order - changes status from ACCEPTEE to EN_PREPARATION"""
+        from apps.restaurants.models import Restaurant
+        
+        # Check if user is a restaurant owner
+        if not hasattr(request.user, 'restaurant'):
+            return Response(
+                {'error': 'Vous devez être propriétaire d\'un restaurant pour effectuer cette action.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        commande = self.get_object()
+        
+        # Verify that the order belongs to this restaurant
+        if commande.restaurant != request.user.restaurant:
+            return Response(
+                {'error': 'Cette commande n\'appartient pas à votre restaurant.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Only allow starting preparation if order is accepted
+        if commande.status != 'ACCEPTEE':
+            return Response(
+                {'error': f'Impossible de commencer la préparation. Statut actuel: {commande.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        commande.status = 'EN_PREPARATION'
+        commande.date_preparation = timezone.now()
+        commande.save()
+        
+        return Response(CommandeDetailSerializer(commande).data)
+    
+    @action(detail=True, methods=['post'], url_path='marquer-prete')
+    def marquer_prete(self, request, pk=None):
+        """Mark order as ready for pickup - makes it visible to livreurs"""
+        from apps.restaurants.models import Restaurant
+        
+        # Check if user is a restaurant owner with the same restaurant as the order
+        if not hasattr(request.user, 'restaurant'):
+            return Response(
+                {'error': 'Vous devez être propriétaire d\'un restaurant pour effectuer cette action.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        commande = self.get_object()
+        
+        # Verify that the order belongs to this restaurant
+        if commande.restaurant != request.user.restaurant:
+            return Response(
+                {'error': 'Cette commande n\'appartient pas à votre restaurant.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Only allow marking as ready if order is in preparation
+        if commande.status != 'EN_PREPARATION':
+            return Response(
+                {'error': f'Impossible de marquer cette commande comme prête. Statut actuel: {commande.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        commande.status = 'PRETE'
+        commande.save()
+        
+        return Response(CommandeDetailSerializer(commande).data)
+    
     @action(detail=True, methods=['get'])
     def tracking(self, request, pk=None):
         commande = self.get_object()
@@ -174,6 +292,42 @@ class CommandeViewSet(viewsets.ModelViewSet):
         commande.date_delivered = timezone.now()
         commande.save()
         
+        return Response(CommandeDetailSerializer(commande).data)
+
+    @action(detail=True, methods=['post'], url_path='marquer-livree')
+    def marquer_livree(self, request, pk=None):
+        """Allow the assigned livreur to mark an order as delivered."""
+        if not hasattr(request.user, 'livreur'):
+            return Response(
+                {'error': 'Vous devez être livreur pour effectuer cette action.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        commande = self.get_object()
+        livreur = request.user.livreur
+
+        if commande.livreur_id != livreur.id:
+            return Response(
+                {'error': "Cette commande n'est pas assignée à votre compte livreur."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if commande.status in ['LIVREE', 'ANNULEE', 'REFUSEE']:
+            return Response(
+                {'error': f'Impossible de marquer cette commande comme livrée. Statut actuel: {commande.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if commande.status not in ['LIVREUR_ASSIGNE', 'EN_ROUTE_COLLECTE', 'COLLECTEE', 'EN_LIVRAISON']:
+            return Response(
+                {'error': f'Statut non valide pour livraison: {commande.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        commande.status = 'LIVREE'
+        commande.date_delivered = timezone.now()
+        commande.save()
+
         return Response(CommandeDetailSerializer(commande).data)
     
     @action(detail=True, methods=['get'])
