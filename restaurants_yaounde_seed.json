@@ -1,0 +1,386 @@
+{
+  "users": [
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner1@yaoundefood.cm",
+        "first_name": "Marie",
+        "last_name": "Nguema",
+        "phone": "+237690123456",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner2@yaoundefood.cm",
+        "first_name": "Jean-Baptiste",
+        "last_name": "Onana",
+        "phone": "+237690123457",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner3@yaoundefood.cm",
+        "first_name": "Fatou",
+        "last_name": "Bissele",
+        "phone": "+237690123458",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner4@yaoundefood.cm",
+        "first_name": "Pierre",
+        "last_name": "Moudio",
+        "phone": "+237690123459",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner5@yaoundefood.cm",
+        "first_name": "Aminata",
+        "last_name": "Diop",
+        "phone": "+237690123460",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner6@yaoundefood.cm",
+        "first_name": "Thomas",
+        "last_name": "Benoit",
+        "phone": "+237690123461",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner7@yaoundefood.cm",
+        "first_name": "Grace",
+        "last_name": "Nkogo",
+        "phone": "+237690123462",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner8@yaoundefood.cm",
+        "first_name": "Michel",
+        "last_name": "Simo",
+        "phone": "+237690123463",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner9@yaoundefood.cm",
+        "first_name": "Chloe",
+        "last_name": "Efouba",
+        "phone": "+237690123464",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    },
+    {
+      "model": "users.user",
+      "pk": null,
+      "fields": {
+        "email": "restaurant.owner10@yaoundefood.cm",
+        "first_name": "Robert",
+        "last_name": "Mba",
+        "phone": "+237690123465",
+        "user_type": "RESTAURANT",
+        "is_verified": true,
+        "is_approved": true,
+        "is_active": true,
+        "password": "pbkdf2_sha256$720000$test$hashed_password"
+      }
+    }
+  ],
+  "restaurants": [
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner1@yaoundefood.cm",
+        "commercial_name": "Le Jardin des Saveurs",
+        "legal_name": "Le Jardin des Saveurs SARL",
+        "description": "Un restaurant gastronomique au coeur de Yaounde, specialise dans la cuisine africaine raffinee. Notre chef vous propose des plats traditionnels revisites avec une touche moderne, dans un cadre verdoyant et paisible.",
+        "cuisine_type": "AFRICAIN",
+        "full_address": "Avenue de l'Independence, Face Palais des Congres, Bastos, Yaounde",
+        "latitude": "3.8512",
+        "longitude": "11.5023",
+        "delivery_radius_km": 5,
+        "avg_preparation_time": 35,
+        "average_rating": "4.70",
+        "review_count": 245,
+        "price_level": "€€",
+        "base_delivery_fee": "500",
+        "min_order_amount": "3000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner2@yaoundefood.cm",
+        "commercial_name": "Pizza Napoli Yaounde",
+        "legal_name": "Pizza Napoli Cameroon S.A.",
+        "description": "La meilleure pizza de Yaoundee ! Pate fraise preparee quotidiennement, ingredients importes d'Italie et fours a bois traditionnels pour des pizzas authentiques et savoureuses.",
+        "cuisine_type": "PIZZA",
+        "full_address": "Rue Joseph Moka, Quartier Ndongo, Yaounde",
+        "latitude": "3.8456",
+        "longitude": "11.4978",
+        "delivery_radius_km": 4,
+        "avg_preparation_time": 25,
+        "average_rating": "4.85",
+        "review_count": 412,
+        "price_level": "€",
+        "base_delivery_fee": "400",
+        "min_order_amount": "2000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner3@yaoundefood.cm",
+        "commercial_name": "Le Petit Bistro",
+        "legal_name": "Le Petit Bistro Cameroon",
+        "description": "Un bistro francais authentique au centre de Yaounde. Venez decouvrir notre selection de vins, nos plats classiques de la gastronomie francaise et notre atmosphere chaleureuse.",
+        "cuisine_type": "FRANCAIS",
+        "full_address": "Place des Festivals, Rue 1008, Biyem-Assi, Yaounde",
+        "latitude": "3.8589",
+        "longitude": "11.5092",
+        "delivery_radius_km": 6,
+        "avg_preparation_time": 30,
+        "average_rating": "4.45",
+        "review_count": 178,
+        "price_level": "€€€",
+        "base_delivery_fee": "600",
+        "min_order_amount": "5000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner4@yaoundefood.cm",
+        "commercial_name": "Dragon d'Or",
+        "legal_name": "Dragon d'Or Sarl",
+        "description": "Restaurant chinois de qualite superieure proposant des dim sum frais, des nouilles handmade et des specialites de Sichuan et Canton. Service rapide et nourriture delicieuse.",
+        "cuisine_type": "ASIATIQUE",
+        "full_address": "Avenue Ahmadou Ahidjo, Immeuble Le Chancellor, Centre-Ville, Yaounde",
+        "latitude": "3.8472",
+        "longitude": "11.5015",
+        "delivery_radius_km": 4,
+        "avg_preparation_time": 20,
+        "average_rating": "4.60",
+        "review_count": 523,
+        "price_level": "€€",
+        "base_delivery_fee": "350",
+        "min_order_amount": "2500",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner5@yaoundefood.cm",
+        "commercial_name": "Burger King Africa",
+        "legal_name": "Burger King Africa Cameroon",
+        "description": "Les meilleurs burgers de Yaounde ! Viande fraise 100% locale, pains faits maison, frites croustillantes et sauces delicieuses. Rapide, savoureux et abordable.",
+        "cuisine_type": "BURGER",
+        "full_address": "Carrefour Mvog-Ada, Rue de la Pharmacie, Mvog-Ada, Yaounde",
+        "latitude": "3.8415",
+        "longitude": "11.4932",
+        "delivery_radius_km": 3,
+        "avg_preparation_time": 15,
+        "average_rating": "4.25",
+        "review_count": 892,
+        "price_level": "€",
+        "base_delivery_fee": "300",
+        "min_order_amount": "1500",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner6@yaoundefood.cm",
+        "commercial_name": "Sakura Sushi Bar",
+        "legal_name": "Sakura Sushi Bar Cameroon",
+        "description": "Bar a sushi premium au Japon. Poisson frais livre quotidiennement, sashimi d'exception, rolls creatif et Ramen authentique. Une experience japonaise unique a Yaounde.",
+        "cuisine_type": "SUSHI",
+        "full_address": "Quartier Rouge, Villa N degrees 45, Djougoudi, Yaounde",
+        "latitude": "3.8621",
+        "longitude": "11.5145",
+        "delivery_radius_km": 5,
+        "avg_preparation_time": 25,
+        "average_rating": "4.90",
+        "review_count": 312,
+        "price_level": "€€",
+        "base_delivery_fee": "700",
+        "min_order_amount": "4000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner7@yaoundefood.cm",
+        "commercial_name": "Quick Bites Yaounde",
+        "legal_name": "Quick Bites Cameroon Ltd",
+        "description": "Le fast-food de reference a Yaounde. Burgers croustillants, poulet dore, salades fraiches et smoothies naturels. Parfait pour un repas rapide et delicieux.",
+        "cuisine_type": "FAST_FOOD",
+        "full_address": "Carrefour Nsimalen, Route de l'Aeroport, Yaounde",
+        "latitude": "3.8389",
+        "longitude": "11.5142",
+        "delivery_radius_km": 8,
+        "avg_preparation_time": 10,
+        "average_rating": "4.15",
+        "review_count": 1056,
+        "price_level": "€",
+        "base_delivery_fee": "250",
+        "min_order_amount": "1000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner8@yaoundefood.cm",
+        "commercial_name": "Trattoria Bella Italia",
+        "legal_name": "Trattoria Bella Italia Sarl",
+        "description": "Une trattoria italienne authentique avec des pates fraiches faites maison, des antipasti italien et des dolci traditionnels. L'Italie a Yaounde !",
+        "cuisine_type": "ITALIEN",
+        "full_address": "Rue des Oliviers, Quartier Etoa-Meki, Yaounde",
+        "latitude": "3.8556",
+        "longitude": "11.4956",
+        "delivery_radius_km": 4,
+        "avg_preparation_time": 28,
+        "average_rating": "4.55",
+        "review_count": 267,
+        "price_level": "€€",
+        "base_delivery_fee": "450",
+        "min_order_amount": "3000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner9@yaoundefood.cm",
+        "commercial_name": "La Terrace Africaine",
+        "legal_name": "La Terrace Africaine SA",
+        "description": "Restaurant spacieux et chaleureux proposant les meilleures specialites africaines. Ndole, Eru, Poisson Braise, et bien plus encore. Ambiance familiale et musique live le week-end.",
+        "cuisine_type": "AFRICAIN",
+        "full_address": "Avenue de la Reunionification, Face Stade Omnisports, Melen, Yaounde",
+        "latitude": "3.8398",
+        "longitude": "11.5089",
+        "delivery_radius_km": 6,
+        "avg_preparation_time": 30,
+        "average_rating": "4.35",
+        "review_count": 634,
+        "price_level": "€",
+        "base_delivery_fee": "350",
+        "min_order_amount": "2000",
+        "is_open": true,
+        "is_active": true
+      }
+    },
+    {
+      "model": "restaurants.restaurant",
+      "pk": null,
+      "fields": {
+        "user": "restaurant.owner10@yaoundefood.cm",
+        "commercial_name": "Le Chalet Gourmet",
+        "legal_name": "Le Chalet Gourmet Cameroon",
+        "description": "Fine dining francaise avec une vue panoramique sur Yaounde. Cuisine gastronomique, cave a vins exceptionnelle et service irreprochable pour des moments inoubliables.",
+        "cuisine_type": "FRANCAIS",
+        "full_address": "Mont Febe, Hotel Hilton, Yaounde",
+        "latitude": "3.8656",
+        "longitude": "11.5198",
+        "delivery_radius_km": 10,
+        "avg_preparation_time": 45,
+        "average_rating": "4.95",
+        "review_count": 156,
+        "price_level": "€€€",
+        "base_delivery_fee": "800",
+        "min_order_amount": "8000",
+        "is_open": true,
+        "is_active": true
+      }
+    }
+  ]
+}
