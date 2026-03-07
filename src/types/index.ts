@@ -155,6 +155,7 @@ export interface Order {
   payment_phone?: string
   campay_reference?: string
   operator?: string
+  ussd_code?: string
   special_instructions: string
   items: OrderItem[]
   date_created: string
@@ -162,6 +163,18 @@ export interface Order {
   date_delivered: string | null
   created_at?: string
   updated_at?: string
+}
+
+export interface PaymentStatusResponse {
+  has_payment: boolean
+  campay_reference?: string
+  payment_status?: string
+  status?: string
+  operator?: string
+  amount?: number
+  operator_reference?: string
+  order_payment_status?: string
+  error?: string
 }
 
 export interface RestaurantDashboardStats {

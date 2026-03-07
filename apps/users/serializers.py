@@ -128,15 +128,8 @@ class LoginSerializer(serializers.Serializer):
             logger.warning(f"[Login] Échec: Compte inactif pour {email}")
             raise serializers.ValidationError({'error': 'Votre compte a été désactivé. Veuillez contacter le support.'})
         
-        # Vérifier si le compte est approuvé (pour les non-CLIENT)
-        if user.user_type != 'CLIENT' and user.is_approved is False:
-            logger.warning(f"[Login] Échec: Compte non approuvé pour {email}")
-            raise serializers.ValidationError({'error': 'Votre compte est en attente d\'approbation par l\'administrateur.'})
-        
-        # Vérifier si le compte est vérifié
-        if user.user_type != 'CLIENT' and not user.is_verified:
-            logger.warning(f"[Login] Échec: Compte non vérifié pour {email}")
-            raise serializers.ValidationError({'error': 'Votre compte n\'a pas encore été vérifié.'})
+        # Connexion autorisée même si le compte n'est pas encore vérifié/approuvé.
+        # Seul un compte inactif est bloqué ici.
         
         # Vérifier le mot de passe
         if not user.check_password(password):

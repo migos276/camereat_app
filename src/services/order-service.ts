@@ -1,6 +1,6 @@
 import axiosService from "./axios-instance"
 import { ENDPOINTS } from "../constants/endpoints"
-import type { Order } from "../types"
+import type { Order, PaymentStatusResponse } from "../types"
 
 const api = axiosService.getInstance()
 
@@ -90,8 +90,8 @@ export const orderService = {
     return response.data
   },
 
-  async checkPaymentStatus(id: string): Promise<any> {
-    const response = await api.get(ENDPOINTS.ORDERS_CHECK_PAYMENT(id))
+  async checkPaymentStatus(id: string): Promise<PaymentStatusResponse> {
+    const response = await api.get<PaymentStatusResponse>(ENDPOINTS.ORDERS_CHECK_PAYMENT(id))
     return response.data
   },
 }

@@ -193,7 +193,19 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
         // If mobile money payment, check payment status
         if (isMobileMoney() && order.campay_reference) {
           // Start polling for payment status
-          startPaymentStatusCheck(order.id)
+          startPaymentStatusCheck(order.id, order.campay_reference)
+        } else if (isMobileMoney()) {
+          // Order created but no campay reference - show info and allow manual check
+          Alert.alert(
+            "Commande créée",
+            "Votre commande a été créée. En l'absence de confirmation de paiement, veuillez compléter le paiement USSD et vérifier le statut dans le suivi de commande.",
+            [
+              {
+                text: "OK",
+                onPress: () => navigation.navigate("OrderTracking", { orderId: order.id })
+              }
+            ]
+          )
         } else {
           // For cash payment, navigate directly
           Alert.alert(
@@ -212,6 +224,7 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
       console.error("Order creation error:", error)
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
+                          error.response?.data?.non_field_errors?.[0] ||
                           "Erreur lors de la création de la commande"
       setPaymentError(errorMessage)
       Alert.alert("Erreur", errorMessage)
@@ -220,17 +233,21 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
     }
   }
 
-  const startPaymentStatusCheck = async (orderId: string) => {
+  const startPaymentStatusCheck = async (orderId: string, campayReference?: string) => {
     setIsCheckingPayment(true)
     let attempts = 0
-    const maxAttempts = 10
+    const maxAttempts = 15 // Increased from 10 to 15 attempts (45 seconds total)
 
     const checkPayment = async () => {
       try {
         const status = await orderService.checkPaymentStatus(orderId)
         console.log("Payment status:", status)
 
-        if (status.payment_status === "SUCCESSFUL" || status.order_payment_status === "PAYE") {
+        // Check both payment_status and order_payment_status for compatibility
+        const paymentStatus = status.payment_status || status.status
+        const orderPaymentStatus = status.order_payment_status
+
+        if (paymentStatus === "SUCCESSFUL" || orderPaymentStatus === "PAYE") {
           setIsCheckingPayment(false)
           Alert.alert(
             "Paiement réussi",
@@ -242,7 +259,7 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
               }
             ]
           )
-        } else if (status.payment_status === "FAILED") {
+        } else if (paymentStatus === "FAILED") {
           setIsCheckingPayment(false)
           Alert.alert(
             "Paiement échoué",
@@ -251,19 +268,21 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
               {
                 text: "OK",
                 onPress: () => {
-                  // Optionally cancel the order
+                  // Optionally navigate back or show payment options
                 }
               }
             ]
           )
         } else if (attempts < maxAttempts) {
           attempts++
+          // Show progress message
+          console.log(`Payment check attempt ${attempts}/${maxAttempts}: Status = ${paymentStatus}`)
           setTimeout(checkPayment, 3000) // Check every 3 seconds
         } else {
           setIsCheckingPayment(false)
           Alert.alert(
-            "En attente",
-            "Le paiement est en cours de vérification. Vous pouvez vérifier le statut dans le suivi de commande.",
+            "En attente de confirmation",
+            "Le paiement est en cours de vérification. Vous pouvez vérifier le statut dans le suivi de commande. Veuillez compléter le paiement USSD sur votre téléphone.",
             [
               {
                 text: "OK",
@@ -272,23 +291,28 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
             ]
           )
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Payment check error:", error)
-        setIsCheckingPayment(false)
-        Alert.alert(
-          "Suivi du paiement",
-          "Impossible de vérifier le statut du paiement. Votre commande a été créée.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("OrderTracking", { orderId })
-            }
-          ]
-        )
+        if (attempts < maxAttempts) {
+          attempts++
+          setTimeout(checkPayment, 3000)
+        } else {
+          setIsCheckingPayment(false)
+          Alert.alert(
+            "Suivi du paiement",
+            "Impossible de vérifier le statut du paiement. Votre commande a été créée. Veuillez vérifier le statut plus tard.",
+            [
+              {
+                text: "OK",
+                onPress: () => navigation.navigate("OrderTracking", { orderId })
+              }
+            ]
+          )
+        }
       }
     }
 
-    // Start checking after a short delay
+    // Start checking after a short delay to give user time to respond to USSD
     setTimeout(checkPayment, 2000)
   }
 

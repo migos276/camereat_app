@@ -11,10 +11,12 @@ from apps.orders.serializers import (
     CommandeCreateSerializer, CommandeDetailSerializer,
     LigneCommandeSerializer, AvisSerializer, PromotionSerializer
 )
-from apps.users.permissions import IsClient, IsApproved
-import requests
+from apps.users.permissions import IsClient
+from apps.payments.services import payment_service
 from django.conf import settings
 import logging
+from decimal import Decimal
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +34,9 @@ class CommandeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = Commande.objects.filter(client=self.request.user)
-        # Filter by status if provided in query params
-        status = self.request.query_params.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
         return queryset
     
     def get_serializer_class(self):
@@ -46,145 +47,93 @@ class CommandeViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            # Check if this is a Mobile Money payment with CamPay
             payment_mode = serializer.validated_data.get('payment_mode')
             payment_phone = serializer.validated_data.get('payment_phone')
-            total_amount = float(request.data.get('total_amount', 0))
-            
+            total_amount = serializer.validated_data.get('total_amount')
+
             campay_reference = None
             operator = None
-            
-            # If Mobile Money payment, initiate CamPay payment
+            ussd_code = None
+
             if payment_mode == 'MOBILE_MONEY' and payment_phone:
                 try:
-                    # Get CamPay token
-                    token = self._get_campay_token()
-                    if token:
-                        # Format phone number
-                        phone = payment_phone.replace(' ', '').replace('-', '')
-                        if not phone.startswith('237'):
-                            if phone.startswith('6'):
-                                phone = '237' + phone
-                        
-                        # Initiate payment
-                        campay_result = self._initiate_campay_payment(
-                            token, 
-                            str(int(total_amount)), 
-                            phone,
-                            f"Order payment - {request.user.email}"
+                    if total_amount is None:
+                        return Response(
+                            {'error': 'Le montant total est requis pour un paiement Mobile Money'},
+                            status=status.HTTP_400_BAD_REQUEST
                         )
-                        
-                        if campay_result.get('success'):
-                            campay_reference = campay_result.get('reference')
-                            operator = campay_result.get('operator')
-                            logger.info(f"CamPay payment initiated: {campay_reference}")
-                        else:
-                            logger.error(f"CamPay payment failed: {campay_result}")
+
+                    phone = payment_phone.replace(' ', '').replace('-', '')
+                    if phone.startswith('+237'):
+                        phone = phone.replace('+237', '237')
+                    elif not phone.startswith('237'):
+                        if phone.startswith('6'):
+                            phone = '237' + phone
+
+                    if not phone.isdigit() or len(phone) != 12 or not phone.startswith('2376'):
+                        return Response(
+                            {'error': 'Numéro Mobile Money invalide. Format attendu: 2376XXXXXXXX'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                    amount_str = str(Decimal(total_amount).quantize(Decimal('1.')))
+                    external_reference = f"ORDER-{request.user.id}-{uuid.uuid4().hex[:12].upper()}"
+                    
+                    campay_result = payment_service.init_collect(
+                        amount=amount_str,
+                        phone=phone,
+                        description=f"Order payment - {request.user.email}",
+                        external_reference=external_reference
+                    )
+
+                    if campay_result.get('success'):
+                        payment_api_status = campay_result.get('status')
+                        if payment_api_status == 'FAILED':
+                            logger.warning(f"CamPay payment failed, order not created: {campay_result}")
                             return Response(
-                                {'error': f"Échec du paiement mobile: {campay_result.get('error', 'Erreur inconnue')}"},
+                                {
+                                    'error': "Le paiement Mobile Money a échoué immédiatement. Vérifiez le numéro et réessayez.",
+                                    'payment_status': 'FAILED',
+                                    'campay_reference': campay_result.get('reference')
+                                },
                                 status=status.HTTP_400_BAD_REQUEST
                             )
+                        else:
+                            campay_reference = campay_result.get('reference')
+                            operator = campay_result.get('operator')
+                            ussd_code = campay_result.get('ussd_code')
+                            logger.info(f"CamPay payment initiated: {campay_reference}, USSD: {ussd_code}")
                     else:
+                        logger.error(f"CamPay payment failed, order not created: {campay_result}")
                         return Response(
-                            {'error': 'Échec de connexion à CamPay'},
-                            status=status.HTTP_500_BAD_REQUEST
+                            {'error': campay_result.get('error', 'Échec de l’initiation du paiement CamPay')},
+                            status=status.HTTP_400_BAD_REQUEST
                         )
                 except Exception as e:
                     logger.error(f"CamPay exception: {str(e)}")
                     return Response(
-                        {'error': f'Erreur lors du paiement: {str(e)}'},
-                        status=status.HTTP_500_BAD_REQUEST
+                        {'error': 'Erreur lors de l’initiation du paiement Mobile Money'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
             
-            # Save the order with CamPay reference
             commande = serializer.save(
                 client=request.user,
                 campay_reference=campay_reference,
-                operator=operator
+                operator=operator,
+                payment_phone=phone if payment_mode == 'MOBILE_MONEY' else payment_phone
             )
             
-            # If payment was successful, update payment status
-            if campay_reference:
-                # For now, keep as EN_ATTENTE until we verify payment
-                # The client will poll to check payment status
-                pass
+            response_data = CommandeDetailSerializer(commande).data
             
-            return Response(
-                CommandeDetailSerializer(commande).data,
-                status=status.HTTP_201_CREATED
-            )
+            if ussd_code:
+                response_data['ussd_code'] = ussd_code
+                response_data['payment_instructions'] = f"Composez {ussd_code} sur votre téléphone pour compléter le paiement"
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def _get_campay_token(self):
-        """Get CamPay API token"""
-        from django.conf import settings
-        
-        CAMPAY_BASE_URL = 'https://demo.campay.net/api'
-        if hasattr(settings, 'CAMPAY_ENVIRONMENT') and settings.CAMPAY_ENVIRONMENT == 'PROD':
-            CAMPAY_BASE_URL = 'https://www.campay.net/api'
-        
-        url = f"{CAMPAY_BASE_URL}/token/"
-        data = {
-            'username': getattr(settings, 'CAMPAY_APP_USERNAME', ''),
-            'password': getattr(settings, 'CAMPAY_APP_PASSWORD', '')
-        }
-        try:
-            response = requests.post(url, data=data)
-            if response.status_code == 200:
-                return response.json().get('token')
-            logger.error(f"CamPay token error: {response.text}")
-            return None
-        except Exception as e:
-            logger.error(f"CamPay token exception: {str(e)}")
-            return None
-    
-    def _initiate_campay_payment(self, token, amount, phone, description):
-        """Initiate CamPay payment"""
-        from django.conf import settings
-        
-        CAMPAY_BASE_URL = 'https://demo.campay.net/api'
-        if hasattr(settings, 'CAMPAY_ENVIRONMENT') and settings.CAMPAY_ENVIRONMENT == 'PROD':
-            CAMPAY_BASE_URL = 'https://www.campay.net/api'
-        
-        url = f"{CAMPAY_BASE_URL}/collect/"
-        
-        headers = {
-            'Authorization': f'Token {token}',
-            'Content-Type': 'application/json'
-        }
-        
-        data = {
-            'amount': amount,
-            'currency': 'XAF',
-            'from': phone,
-            'description': description,
-            'external_reference': ''
-        }
-        
-        try:
-            response = requests.post(url, json=data, headers=headers)
-            logger.info(f"CamPay collect response: {response.status_code} - {response.text}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    'success': True,
-                    'reference': result.get('reference'),
-                    'status': result.get('status'),
-                    'operator': result.get('operator')
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': response.json().get('detail', 'Payment failed')
-                }
-        except Exception as e:
-            logger.error(f"CamPay collect exception: {str(e)}")
-            return {'success': False, 'error': str(e)}
     
     @action(detail=True, methods=['post'])
     def annuler(self, request, pk=None):
-        """Cancel an order"""
         commande = self.get_object()
         if commande.status in ['LIVREE', 'ANNULEE']:
             return Response(
@@ -200,7 +149,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def tracking(self, request, pk=None):
-        """Get order tracking info"""
         commande = self.get_object()
         return Response({
             'numero': commande.numero,
@@ -213,7 +161,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def valider_livraison(self, request, pk=None):
-        """Validate delivery with OTP"""
         commande = self.get_object()
         otp = request.data.get('otp_code')
         
@@ -231,7 +178,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def check_payment(self, request, pk=None):
-        """Check CamPay payment status"""
         commande = self.get_object()
         
         if not commande.campay_reference:
@@ -241,56 +187,36 @@ class CommandeViewSet(viewsets.ModelViewSet):
             })
         
         try:
-            token = self._get_campay_token()
-            if not token:
-                return Response(
-                    {'error': 'Failed to connect to CamPay'},
-                    status=status.HTTP_500_BAD_REQUEST
-                )
-            
-            from django.conf import settings
-            CAMPAY_BASE_URL = 'https://demo.campay.net/api'
-            if hasattr(settings, 'CAMPAY_ENVIRONMENT') and settings.CAMPAY_ENVIRONMENT == 'PROD':
-                CAMPAY_BASE_URL = 'https://www.campay.net/api'
-            
-            url = f"{CAMPAY_BASE_URL}/get_transaction_status/"
-            headers = {
-                'Authorization': f'Token {token}',
-                'Content-Type': 'application/json'
-            }
-            data = {'reference': commande.campay_reference}
-            
-            response = requests.post(url, json=data, headers=headers)
-            
-            if response.status_code == 200:
-                result = response.json()
+            result = payment_service.get_transaction_status(commande.campay_reference)
+
+            if result.get('success'):
                 payment_status = result.get('status')
-                
-                # Update order payment status if payment is successful
+
                 if payment_status == 'SUCCESSFUL' and commande.payment_status != 'PAYE':
                     commande.payment_status = 'PAYE'
                     commande.save()
-                
+
                 return Response({
                     'has_payment': True,
                     'campay_reference': commande.campay_reference,
                     'payment_status': payment_status,
-                    'operator': commande.operator,
+                    'operator': result.get('operator') or commande.operator,
                     'amount': result.get('amount'),
+                    'operator_reference': result.get('operator_reference'),
                     'order_payment_status': commande.payment_status
                 })
             else:
                 return Response({
-                    'error': 'Failed to get payment status',
-                    'details': response.json()
+                    'error': result.get('error', 'Failed to get payment status'),
                 }, status=status.HTTP_400_BAD_REQUEST)
                 
         except Exception as e:
             logger.error(f"Check payment exception: {str(e)}")
             return Response(
                 {'error': str(e)},
-                status=status.HTTP_500_BAD_REQUEST
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class AvisViewSet(viewsets.ModelViewSet):
     serializer_class = AvisSerializer
