@@ -42,6 +42,26 @@ interface EarningsData {
   completion_rate: number
 }
 
+const toNumber = (value: unknown, fallback = 0): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const getNumberFromCandidates = (source: any, paths: string[], fallback = 0): number => {
+  if (!source) return fallback
+
+  for (const path of paths) {
+    const value = path.split(".").reduce<any>((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), source)
+    const parsed = toNumber(value, Number.NaN)
+    if (Number.isFinite(parsed)) return parsed
+  }
+
+  return fallback
+}
+
+const formatFcfa = (value: number): string =>
+  `${value.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} FCFA`
+
 export const EarningsScreen: React.FC<any> = ({ navigation }) => {
   const dispatch = useAppDispatch()
   const { earnings, isLoading, error } = useAppSelector((state) => state.livreur)
@@ -65,31 +85,42 @@ export const EarningsScreen: React.FC<any> = ({ navigation }) => {
     }
   }, [error, dispatch])
 
-  // Mock data for when no backend data is available
-  const mockDailyBreakdown = [
-    { day_name: "Monday", earnings: 45.5, deliveries: 4 },
-    { day_name: "Tuesday", earnings: 62.0, deliveries: 5 },
-    { day_name: "Wednesday", earnings: 58.0, deliveries: 5 },
-    { day_name: "Thursday", earnings: 75.5, deliveries: 6 },
-    { day_name: "Friday", earnings: 84.5, deliveries: 7 },
-    { day_name: "Saturday", earnings: 0, deliveries: 0 },
-    { day_name: "Sunday", earnings: 0, deliveries: 0 },
-  ]
+  const rawData = earnings as any
+  const data = (rawData?.data ?? rawData ?? null) as EarningsData | null
 
-  // Use backend data or fallback to mock data
-  const data = earnings as EarningsData | null
-  const dailyBreakdown = data?.daily_breakdown && data.daily_breakdown.length > 0
-    ? data.daily_breakdown
-    : mockDailyBreakdown
+  const totalEarningsWeek = getNumberFromCandidates(data, [
+    "total_earnings_week",
+    "weekly_earnings",
+    "earnings_week",
+    "week_total",
+    "total_earnings",
+  ])
+  const deliveriesWeek = getNumberFromCandidates(data, [
+    "deliveries_week",
+    "weekly_deliveries",
+    "deliveries_count_week",
+    "deliveries_count",
+  ])
+  const bonuses = getNumberFromCandidates(data, ["bonuses", "bonus", "weekly_bonus"])
+  const weeklyGoal = getNumberFromCandidates(data, ["weekly_goal", "goal_deliveries_week", "deliveries_goal_week"], 25)
+  const rawWeeklyGoalProgress = getNumberFromCandidates(data, ["weekly_goal_progress", "goal_progress", "progress"], Number.NaN)
+  const computedGoalProgress = weeklyGoal > 0 ? deliveriesWeek / weeklyGoal : 0
+  const weeklyGoalProgress = Math.min(1, Math.max(0, Number.isFinite(rawWeeklyGoalProgress) ? rawWeeklyGoalProgress : computedGoalProgress))
+  const averageRating = getNumberFromCandidates(data, ["average_rating", "rating_average", "avg_rating"])
+  const averageDeliveryTime = getNumberFromCandidates(data, ["average_delivery_time", "avg_delivery_time", "delivery_time_average"])
+  const rawCompletionRate = getNumberFromCandidates(data, ["completion_rate", "delivery_completion_rate", "rate_completion"])
+  const completionRate = rawCompletionRate > 1 ? rawCompletionRate / 100 : rawCompletionRate
+  const deliveriesAmount = Math.max(0, totalEarningsWeek - bonuses)
 
-  const totalEarningsWeek = data?.total_earnings_week ?? 425.50
-  const deliveriesWeek = data?.deliveries_week ?? 24
-  const bonuses = data?.bonuses ?? 5.50
-  const weeklyGoal = data?.weekly_goal ?? 25
-  const weeklyGoalProgress = data?.weekly_goal_progress ?? 0.96
-  const averageRating = data?.average_rating ?? 4.8
-  const averageDeliveryTime = data?.average_delivery_time ?? 22
-  const completionRate = data?.completion_rate ?? 0.98
+  const dailyBreakdownSource = (data as any)?.daily_breakdown ?? (data as any)?.breakdown ?? (data as any)?.earnings_by_day ?? []
+  const dailyBreakdown = Array.isArray(dailyBreakdownSource)
+    ? dailyBreakdownSource.map((item: any) => ({
+        date: item?.date ?? "",
+        day_name: item?.day_name ?? item?.day ?? item?.label ?? "Jour",
+        earnings: getNumberFromCandidates(item, ["earnings", "amount", "total"]),
+        deliveries: getNumberFromCandidates(item, ["deliveries", "deliveries_count", "orders_count"]),
+      }))
+    : []
 
   const renderContent = () => {
     if (isLoading && !earnings) {
@@ -107,19 +138,19 @@ export const EarningsScreen: React.FC<any> = ({ navigation }) => {
         <Card style={styles.earningsCard}>
           <Text style={styles.earningsLabel}>Total Earnings This Week</Text>
           <Text style={styles.earningsAmount}>
-            {totalEarningsWeek.toLocaleString('fr-FR')} FCFA
+            {formatFcfa(totalEarningsWeek)}
           </Text>
           <View style={styles.earningsBreakdown}>
             <View style={styles.breakdownItem}>
               <Text style={styles.breakdownLabel}>Deliveries: {deliveriesWeek}</Text>
               <Text style={styles.breakdownValue}>
-                {(totalEarningsWeek - bonuses).toLocaleString('fr-FR')} FCFA
+                {formatFcfa(deliveriesAmount)}
               </Text>
             </View>
             <View style={styles.breakdownItem}>
               <Text style={styles.breakdownLabel}>Bonuses</Text>
               <Text style={styles.breakdownValue}>
-                {bonuses.toLocaleString('fr-FR')} FCFA
+                {formatFcfa(bonuses)}
               </Text>
             </View>
           </View>
@@ -155,17 +186,21 @@ export const EarningsScreen: React.FC<any> = ({ navigation }) => {
         {/* Daily Breakdown Card */}
         <Card style={styles.dailyBreakdownCard}>
           <Text style={styles.breakdownTitle}>Daily Breakdown</Text>
-          {dailyBreakdown.map((item, idx) => (
-            <View key={idx} style={styles.dayItem}>
-              <View style={styles.dayInfo}>
-                <Text style={styles.dayName}>{item.day_name}</Text>
-                <Text style={styles.dayDeliveries}>{item.deliveries} deliveries</Text>
+          {dailyBreakdown.length > 0 ? (
+            dailyBreakdown.map((item, idx) => (
+              <View key={idx} style={styles.dayItem}>
+                <View style={styles.dayInfo}>
+                  <Text style={styles.dayName}>{item.day_name}</Text>
+                  <Text style={styles.dayDeliveries}>{item.deliveries} deliveries</Text>
+                </View>
+                <Text style={[styles.dayEarnings, item.earnings > 0 && { color: LIVREUR_COLORS.SUCCESS }]}>
+                  {formatFcfa(toNumber(item.earnings))}
+                </Text>
               </View>
-              <Text style={[styles.dayEarnings, item.earnings > 0 && { color: LIVREUR_COLORS.SUCCESS }]}>
-                {item.earnings.toLocaleString('fr-FR')} FCFA
-              </Text>
-            </View>
-          ))}
+            ))
+          ) : (
+            <Text style={styles.emptyText}>Aucun revenu disponible pour cette période.</Text>
+          )}
         </Card>
 
         {/* Performance Stats Card */}
@@ -314,6 +349,10 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: LIVREUR_COLORS.TEXT_SECONDARY,
   },
   dayItem: {
     flexDirection: "row",

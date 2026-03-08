@@ -28,6 +28,25 @@ const initialState: LivreurState = {
   currentPosition: null,
 }
 
+const toSafeNumber = (value: any, fallback = 0): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const normalizeDelivery = (delivery: any): Delivery => {
+  const normalized = { ...(delivery || {}) }
+  normalized.delivery_fee = toSafeNumber(
+    normalized.delivery_fee ??
+      normalized.estimated_pay ??
+      normalized.amount ??
+      normalized.total_amount ??
+      normalized.products_amount,
+    0,
+  )
+  normalized.distance = normalized.distance ?? normalized.distance_km
+  return normalized as Delivery
+}
+
 // <CHANGE> Async thunks for livreur profile management
 export const getLivreurProfile = createAsyncThunk(
   "livreur/getProfile",
@@ -79,7 +98,14 @@ export const getAvailableDeliveries = createAsyncThunk(
         })
       }
       
-      return await livreurService.getAvailableDeliveries()
+      // Get current position from state if available
+      const livreurState = getState() as { livreur: { currentPosition: { latitude: number; longitude: number } | null } }
+      const currentPosition = livreurState.livreur.currentPosition
+      
+      return await livreurService.getAvailableDeliveries(
+        currentPosition?.latitude,
+        currentPosition?.longitude
+      )
     } catch (error: any) {
       const errorData = error.response?.data
       
@@ -114,6 +140,14 @@ export const getAvailableDeliveries = createAsyncThunk(
             detail: errorData.detail || 'Votre compte a été rejeté.',
             code: 'REJECTED',
             status: errorData.status
+          })
+        }
+        if (errorData.error === 'position_not_set' || errorData.code === 'position_not_set') {
+          return rejectWithValue({
+            error: 'position_not_set',
+            detail: errorData.detail || 'Vous devez définir votre position GPS pour voir les commandes disponibles.',
+            code: 'POSITION_NOT_SET',
+            action_required: 'update_position'
           })
         }
         if (errorData.error === 'pending_approval') {
@@ -172,6 +206,17 @@ export const rejectDelivery = createAsyncThunk(
   },
 )
 
+export const getActiveDelivery = createAsyncThunk(
+  "livreur/getActiveDelivery",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await livreurService.getActiveDelivery()
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "Failed to fetch active delivery")
+    }
+  },
+)
+
 export const updateDeliveryStatus = createAsyncThunk(
   "livreur/updateDeliveryStatus",
   async ({ id, status }: { id: string; status: string }, { rejectWithValue }) => {
@@ -188,8 +233,10 @@ export const updatePosition = createAsyncThunk(
   "livreur/updatePosition",
   async ({ latitude, longitude }: { latitude: number; longitude: number }, { rejectWithValue }) => {
     try {
-      await livreurService.updatePosition(latitude, longitude)
-      return { latitude, longitude }
+      const safeLatitude = Number(latitude.toFixed(6))
+      const safeLongitude = Number(longitude.toFixed(6))
+      await livreurService.updatePosition(safeLatitude, safeLongitude)
+      return { latitude: safeLatitude, longitude: safeLongitude }
     } catch (error: any) {
       return rejectWithValue(error.response?.data || "Failed to update position")
     }
@@ -297,14 +344,14 @@ const livreurSlice = createSlice({
       })
       .addCase(getAvailableDeliveries.fulfilled, (state, action) => {
         state.isLoading = false
-        state.availableDeliveries = action.payload
+        state.availableDeliveries = Array.isArray(action.payload) ? action.payload.map(normalizeDelivery) : []
       })
       .addCase(getAvailableDeliveries.rejected, (state, action) => {
         state.isLoading = false
         state.error = action.payload as string
       })
       .addCase(getNearbyDeliveries.fulfilled, (state, action) => {
-        state.availableDeliveries = action.payload
+        state.availableDeliveries = Array.isArray(action.payload) ? action.payload.map(normalizeDelivery) : []
       })
       // <CHANGE> Handle delivery accept/reject actions
       .addCase(acceptDelivery.pending, (state) => {
@@ -312,7 +359,7 @@ const livreurSlice = createSlice({
       })
       .addCase(acceptDelivery.fulfilled, (state, action) => {
         state.isLoading = false
-        state.activeDelivery = action.payload
+        state.activeDelivery = normalizeDelivery(action.payload)
         state.availableDeliveries = state.availableDeliveries.filter((d) => d.id !== action.payload.id)
       })
       .addCase(acceptDelivery.rejected, (state, action) => {
@@ -322,15 +369,33 @@ const livreurSlice = createSlice({
       .addCase(rejectDelivery.fulfilled, (state, action) => {
         state.availableDeliveries = state.availableDeliveries.filter((d) => d.id !== action.payload)
       })
+      .addCase(getActiveDelivery.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(getActiveDelivery.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.activeDelivery = normalizeDelivery(action.payload)
+      })
+      .addCase(getActiveDelivery.rejected, (state, action) => {
+        state.isLoading = false
+        const payload = action.payload as any
+        // "No active delivery" should not be treated as a blocking error in UI.
+        if (payload?.error === "No active delivery") {
+          state.activeDelivery = null
+          return
+        }
+        state.error = payload?.detail || payload?.error || (action.payload as string)
+      })
       // <CHANGE> Handle delivery status updates
       .addCase(updateDeliveryStatus.pending, (state) => {
         state.isLoading = true
       })
       .addCase(updateDeliveryStatus.fulfilled, (state, action) => {
         state.isLoading = false
-        state.activeDelivery = action.payload
-        if (action.payload.status === "delivered" || action.payload.status === "LIVREE") {
-          state.deliveryHistory.unshift(action.payload)
+        const normalized = normalizeDelivery(action.payload)
+        state.activeDelivery = normalized
+        if (normalized.status === "delivered" || normalized.status === "LIVREE") {
+          state.deliveryHistory.unshift(normalized)
           state.activeDelivery = null
         }
       })

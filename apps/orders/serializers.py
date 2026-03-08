@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.orders.models import Commande, LigneCommande, Avis, Promotion
 from apps.products.serializers import ProduitSerializer
 from decimal import Decimal
+from django.utils import timezone
 
 class LigneCommandeSerializer(serializers.ModelSerializer):
     produit = ProduitSerializer(read_only=True)
@@ -25,7 +26,9 @@ class CommandeCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Commande
         fields = [
-            'restaurant', 'supermarche', 'delivery_address_text',
+            'restaurant', 'supermarche', 'client_name', 'client_phone',
+            'delivery_address_text', 'client_delivery_address',
+            'delivery_preference', 'requested_delivery_time',
             'special_instructions', 'payment_mode', 'payment_phone',
             'campay_reference', 'operator', 'total_amount', 'delivery_fee', 'items',
             'delivery_address_id'
@@ -40,6 +43,21 @@ class CommandeCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"payment_phone": "Le numéro de téléphone est requis pour Mobile Money."}
             )
+
+        delivery_preference = attrs.get('delivery_preference', 'DES_QUE_PRETE')
+        requested_delivery_time = attrs.get('requested_delivery_time')
+        if delivery_preference == 'PLANIFIEE':
+            if not requested_delivery_time:
+                raise serializers.ValidationError(
+                    {"requested_delivery_time": "L'heure de livraison est requise pour une commande planifiée."}
+                )
+            if requested_delivery_time <= timezone.now():
+                raise serializers.ValidationError(
+                    {"requested_delivery_time": "L'heure de livraison doit être dans le futur."}
+                )
+        elif requested_delivery_time:
+            # Ignore scheduled date when user requested ASAP delivery.
+            attrs['requested_delivery_time'] = None
         
         # Handle delivery_address_id - convert to delivery_address_text if provided
         delivery_address_id = attrs.pop('delivery_address_id', None)
@@ -58,7 +76,23 @@ class CommandeCreateSerializer(serializers.ModelSerializer):
                 attrs['delivery_address_text'] = ', '.join(filter(None, address_parts))
             except (Address.DoesNotExist, AttributeError):
                 pass  # Will use delivery_address_text if already provided
-        
+
+        if not attrs.get('client_name'):
+            request = self.context.get('request')
+            user = getattr(request, 'user', None)
+            if user and user.is_authenticated:
+                full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+                attrs['client_name'] = full_name or user.email
+
+        if not attrs.get('client_phone'):
+            request = self.context.get('request')
+            user = getattr(request, 'user', None)
+            if user and user.is_authenticated:
+                attrs['client_phone'] = (getattr(user, 'phone', '') or '').strip()
+
+        if not attrs.get('client_delivery_address'):
+            attrs['client_delivery_address'] = attrs.get('delivery_address_text', '')
+
         return attrs
 
     def create(self, validated_data):
@@ -118,6 +152,7 @@ class CommandeDetailSerializer(serializers.ModelSerializer):
     items = LigneCommandeSerializer(many=True, read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.commercial_name', read_only=True)
     livreur_name = serializers.CharField(source='livreur.user.get_full_name', read_only=True)
+    order_hour = serializers.DateTimeField(source='date_created', read_only=True)
     # USSD code is not stored but can be passed through for response
     ussd_code = serializers.SerializerMethodField()
     
@@ -125,8 +160,10 @@ class CommandeDetailSerializer(serializers.ModelSerializer):
         model = Commande
         fields = [
             'id', 'numero', 'status', 'restaurant_name', 'livreur_name',
-            'delivery_address_text', 'distance_km', 'estimated_duration_minutes',
+            'client_name', 'client_phone', 'delivery_address_text', 'client_delivery_address',
+            'distance_km', 'estimated_duration_minutes',
             'products_amount', 'delivery_fee', 'platform_commission', 'total_amount',
+            'delivery_preference', 'requested_delivery_time', 'order_hour',
             'payment_mode', 'payment_status', 'payment_phone', 'campay_reference',
             'operator', 'ussd_code', 'special_instructions', 'items',
             'date_created', 'date_accepted', 'date_delivered'

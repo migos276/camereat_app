@@ -7,18 +7,18 @@ class LigneCommandeInline(admin.TabularInline):
 
 @admin.register(Commande)
 class CommandeAdmin(admin.ModelAdmin):
-    list_display = ('numero', 'client', 'status', 'total_amount', 'date_created')
+    list_display = ('numero', 'client_name', 'client_phone', 'client', 'status', 'total_amount', 'date_created')
     list_filter = ('status', 'payment_mode', 'date_created')
-    search_fields = ('numero', 'client__email')
+    search_fields = ('numero', 'client__email', 'client_name', 'client_phone', 'delivery_address_text', 'client_delivery_address')
     readonly_fields = ('numero', 'distance_km', 'estimated_duration_minutes', 'date_created')
     inlines = [LigneCommandeInline]
     
     fieldsets = (
         ('Informations', {
-            'fields': ('numero', 'client', 'restaurant', 'supermarche', 'livreur')
+            'fields': ('numero', 'client', 'client_name', 'client_phone', 'restaurant', 'supermarche', 'livreur')
         }),
         ('Localisation', {
-            'fields': ('start_position', 'delivery_position', 'delivery_address_text', 'distance_km')
+            'fields': ('start_position', 'delivery_position', 'delivery_address_text', 'client_delivery_address', 'distance_km')
         }),
         ('Durée', {
             'fields': ('estimated_duration_minutes',)
@@ -30,7 +30,7 @@ class CommandeAdmin(admin.ModelAdmin):
             'fields': ('payment_mode', 'payment_status')
         }),
         ('Statut', {
-            'fields': ('status', 'special_instructions', 'cancellation_reason')
+            'fields': ('status', 'special_instructions', 'delivery_preference', 'requested_delivery_time', 'cancellation_reason')
         }),
         ('Sécurité', {
             'fields': ('otp_code',)

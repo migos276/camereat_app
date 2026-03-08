@@ -29,6 +29,7 @@ const HomeStack: React.FC = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: true, headerStyle: { backgroundColor: COLORS.white } }}>
       <Stack.Screen name="RestaurantHome" component={RestaurantHomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
     </Stack.Navigator>
   )
 }

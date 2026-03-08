@@ -12,6 +12,11 @@ type CreateOrderPayload = {
   items: Array<{ product_id?: string; produit?: string; quantity: number; special_instructions?: string }>
   delivery_address_id?: string
   delivery_address_text?: string
+  client_delivery_address?: string
+  client_name?: string
+  client_phone?: string
+  delivery_preference?: "DES_QUE_PRETE" | "PLANIFIEE"
+  requested_delivery_time?: string
   payment_mode?: string
   payment_phone?: string
   total_amount?: number
@@ -29,6 +34,12 @@ const normalizeCreateOrderPayload = (orderData: CreateOrderPayload) => {
   const payload: Record<string, any> = {
     items: mappedItems,
     delivery_address_text: orderData.delivery_address_text || fallbackAddress,
+    client_delivery_address: orderData.client_delivery_address,
+    delivery_address_id: orderData.delivery_address_id,
+    client_name: orderData.client_name,
+    client_phone: orderData.client_phone,
+    delivery_preference: orderData.delivery_preference,
+    requested_delivery_time: orderData.requested_delivery_time,
     payment_mode: orderData.payment_mode,
     payment_phone: orderData.payment_phone,
     total_amount: orderData.total_amount,

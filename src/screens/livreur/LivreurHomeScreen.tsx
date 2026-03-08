@@ -13,6 +13,20 @@ type Props = {
   navigation: CompositeNavigationProp<any, any>
 }
 
+const toNumber = (value: unknown, fallback = 0): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const getRecentDeliveryAmount = (delivery: any): number =>
+  toNumber(
+    delivery?.amount ??
+      delivery?.livreur_earnings ??
+      delivery?.total_amount ??
+      delivery?.delivery_fee,
+    0,
+  )
+
 const LivreurHomeScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch()
   const { profile, statistics, isOnline, isLoading } = useAppSelector((state) => state.livreur)
@@ -29,8 +43,8 @@ const LivreurHomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const quickStats = [
     { id: "1", icon: "shopping-cart", value: statistics?.deliveries_today?.toString() || "0", label: "Deliveries Today" },
-    { id: "2", icon: "attach-money", value: `${statistics?.earnings_today?.toFixed(2) || "0.00"} FCFA`, label: "Earned Today" },
-    { id: "3", icon: "star", value: profile?.average_rating?.toFixed(1) || "N/A", label: "Your Rating" },
+    { id: "2", icon: "attach-money", value: `${toNumber(statistics?.earnings_today).toFixed(2)} FCFA`, label: "Earned Today" },
+    { id: "3", icon: "star", value: toNumber(profile?.average_rating, 0).toFixed(1), label: "Your Rating" },
     { id: "4", icon: "timer", value: statistics?.average_delivery_time?.toString() || "N/A", label: "Minutes AVG" },
   ]
 
@@ -115,10 +129,10 @@ const LivreurHomeScreen: React.FC<Props> = ({ navigation }) => {
                     <MaterialIcons name="check-circle" size={20} color={COLORS.success} />
                   </View>
                   <View style={styles.deliveryInfo}>
-                    <Text style={styles.deliveryOrderId}>{delivery.order_id}</Text>
+                    <Text style={styles.deliveryOrderId}>{delivery.order_id || delivery.numero || "Commande"}</Text>
                     <Text style={styles.deliveryRestaurant}>{delivery.restaurant_name}</Text>
                   </View>
-                  <Text style={styles.deliveryAmount}>{delivery.amount?.toFixed(2) || "0.00"} FCFA</Text>
+                  <Text style={styles.deliveryAmount}>{getRecentDeliveryAmount(delivery).toFixed(2)} FCFA</Text>
                 </View>
               ))}
             </View>

@@ -28,9 +28,17 @@ class Commande(models.Model):
         ('PAYE', 'Payé'),
         ('REMBOURSE', 'Remboursé'),
     )
+
+    DELIVERY_PREFERENCE_CHOICES = (
+        ('DES_QUE_PRETE', 'Dès que prête'),
+        ('PLANIFIEE', 'Planifiée'),
+    )
     
     numero = models.CharField(max_length=50, unique=True, editable=False)
     client = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='orders', limit_choices_to={'user_type': 'CLIENT'})
+    client_name = models.CharField(max_length=255, blank=True, default='')
+    client_phone = models.CharField(max_length=20, blank=True, default='')
+    client_delivery_address = models.TextField(blank=True, default='')
     
     restaurant = models.ForeignKey('restaurants.Restaurant', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     supermarche = models.ForeignKey('supermarches.Supermarche', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
@@ -61,6 +69,12 @@ class Commande(models.Model):
     operator = models.CharField(max_length=20, blank=True, null=True, verbose_name="Opérateur (MTN/ORANGE)")
     
     special_instructions = models.TextField(blank=True)
+    delivery_preference = models.CharField(
+        max_length=20,
+        choices=DELIVERY_PREFERENCE_CHOICES,
+        default='DES_QUE_PRETE'
+    )
+    requested_delivery_time = models.DateTimeField(null=True, blank=True)
     otp_code = models.CharField(max_length=6, blank=True)
     cancellation_reason = models.TextField(blank=True)
     

@@ -118,6 +118,20 @@ const AnimatedOrderCard: React.FC<{
   const amount = Number(order?.total_amount || 0)
   const deliveryAddress = ((order as any)?.delivery_address_text || "").trim()
   const paymentMode = String((order as any)?.payment_mode || "").replace(/_/g, " ")
+  const itemCount = (() => {
+    const rawCount = Number((order as any)?.items_count)
+    if (Number.isFinite(rawCount) && rawCount > 0) {
+      return rawCount
+    }
+    const items = (order as any)?.items
+    if (Array.isArray(items)) {
+      const quantitySum = items.reduce((sum: number, item: any) => {
+        return sum + Math.max(0, Number(item?.quantity) || 0)
+      }, 0)
+      return quantitySum > 0 ? quantitySum : items.length
+    }
+    return 0
+  })()
 
   useEffect(() => {
     Animated.parallel([
@@ -202,7 +216,7 @@ const AnimatedOrderCard: React.FC<{
             <View style={styles.metaItem}>
               <MaterialIcons name="shopping-bag" size={14} color="#9CA3AF" />
               <Text style={styles.metaText}>
-                {order.items_count || 0} article{(order.items_count || 0) > 1 ? "s" : ""}
+                {itemCount} article{itemCount > 1 ? "s" : ""}
               </Text>
             </View>
             <View style={styles.metaDot} />

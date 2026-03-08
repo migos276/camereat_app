@@ -143,7 +143,13 @@ export interface Order {
   status: string
   restaurant_name?: string
   livreur_name?: string
+  client_name?: string
+  client_phone?: string
   delivery_address_text: string
+  client_delivery_address?: string
+  delivery_preference?: "DES_QUE_PRETE" | "PLANIFIEE"
+  requested_delivery_time?: string | null
+  order_hour?: string
   distance_km: number
   estimated_duration_minutes: number
   products_amount: number

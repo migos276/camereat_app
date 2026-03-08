@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.contrib.gis.geos import Point
 from django.contrib.gis.db.models.functions import Distance
-from geopy.distance import geodesic
+from django.contrib.gis.measure import D
 from apps.livreurs.models import Livreur, StatistiquesLivreur
 from apps.livreurs.serializers import (
     LivreurDetailSerializer, LivreurUpdateSerializer, LivreurPositionSerializer,
@@ -63,11 +63,6 @@ class LivreurViewSet(viewsets.ViewSet):
         """Update online status"""
         try:
             livreur = request.user.livreur
-            if not request.user.is_approved and request.data.get('status') == 'EN_LIGNE':
-                return Response(
-                    {'error': 'Cannot go online without approval'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
             
             serializer = LivreurStatusUpdateSerializer(data=request.data)
             if serializer.is_valid():
@@ -100,28 +95,82 @@ class LivreurViewSet(viewsets.ViewSet):
                     'detail': 'Votre compte de livreur est désactivé. Veuillez contacter le support.'
                 }, status=status.HTTP_403_FORBIDDEN)
             
-            # Check if position is set
-            if not livreur.current_latitude or not livreur.current_longitude:
+            # Check if position is provided in request or use stored position
+            latitude = request.query_params.get('latitude')
+            longitude = request.query_params.get('longitude')
+            
+            if latitude and longitude:
+                # Use position from request and validate precision/format
+                position_serializer = LivreurPositionSerializer(
+                    data={'latitude': latitude, 'longitude': longitude}
+                )
+                if not position_serializer.is_valid():
+                    return Response({
+                        'error': 'invalid_position',
+                        'message': 'Coordonnées GPS invalides',
+                        'detail': position_serializer.errors
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                lat = position_serializer.validated_data['latitude']
+                lon = position_serializer.validated_data['longitude']
+                user_location = Point(float(lon), float(lat), srid=4326)
+
+                # Keep the latest validated position on the profile
+                livreur.current_latitude = lat
+                livreur.current_longitude = lon
+                livreur.last_position_update = timezone.now()
+                livreur.save(update_fields=['current_latitude', 'current_longitude', 'last_position_update'])
+            elif livreur.current_latitude and livreur.current_longitude:
+                # Use stored position
+                user_location = Point(float(livreur.current_longitude), float(livreur.current_latitude), srid=4326)
+            else:
+                # No position available
                 return Response({
                     'error': 'position_not_set',
                     'message': 'Position non définie',
-                    'detail': 'Vous devez définir votre position GPS pour voir les commandes disponibles.',
+                    'detail': 'Vous devez définir votre position GPS pour voir les commandes disponibles. Vous pouvez activer votre GPS ou autoriser l\'application à accéder à votre position.',
                     'action_required': 'update_position'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
-            user_location = Point(float(livreur.current_longitude), float(livreur.current_latitude))
-            commandes = Commande.objects.filter(
+            base_queryset = Commande.objects.filter(
                 status='PRETE',
                 livreur__isnull=True
-            ).annotate(
-                distance=Distance('delivery_position', user_location)
-            ).filter(
-                distance__lte=f'{livreur.action_radius_km} km'
-            ).order_by('distance')[:20]
+            )
+
+            # Nearby pickup points: restaurant first, then supermarket when applicable.
+            nearby_restaurant_orders = list(
+                base_queryset
+                .filter(restaurant__position__isnull=False)
+                .annotate(distance=Distance('restaurant__position', user_location))
+                .filter(distance__lte=D(km=livreur.action_radius_km))
+            )
+            nearby_supermarket_orders = list(
+                base_queryset
+                .filter(supermarche__position__isnull=False)
+                .annotate(distance=Distance('supermarche__position', user_location))
+                .filter(distance__lte=D(km=livreur.action_radius_km))
+            )
+
+            deduped_orders = {}
+            for commande in nearby_restaurant_orders + nearby_supermarket_orders:
+                deduped_orders[str(commande.id)] = commande
+
+            commandes = sorted(
+                deduped_orders.values(),
+                key=lambda cmd: cmd.distance.m if getattr(cmd, 'distance', None) else float('inf')
+            )[:20]
             
             from apps.orders.serializers import CommandeDetailSerializer
             serializer = CommandeDetailSerializer(commandes, many=True)
-            return Response(serializer.data)
+            serialized_orders = serializer.data
+
+            # Expose pickup distance in km for mobile list sorting/display.
+            for index, commande in enumerate(commandes):
+                distance_km = None
+                if getattr(commande, 'distance', None):
+                    distance_km = round(commande.distance.km, 2)
+                serialized_orders[index]['distance'] = distance_km
+
+            return Response(serialized_orders)
         except Livreur.DoesNotExist:
             return Response({'error': 'Delivery profile not found'}, status=status.HTTP_404_NOT_FOUND)
     
@@ -196,7 +245,7 @@ class LivreurViewSet(viewsets.ViewSet):
                 livreur=livreur,
                 status='LIVREE',
                 date_delivered__isnull=False
-            ).aggregate(avg_minutes=Avg('delivery_time_minutes'))
+            ).aggregate(avg_minutes=Avg('estimated_duration_minutes'))
             average_delivery_time = int(avg_time_result['avg_minutes'] or 22)
             
             # Build response
@@ -336,8 +385,8 @@ class LivreurViewSet(viewsets.ViewSet):
             
             for i in range(7):
                 day_date = today - timedelta(days=i)
-                day_start = datetime.combine(day_date, datetime.min.time())
-                day_end = datetime.combine(day_date, datetime.max.time())
+                day_start = timezone.make_aware(datetime.combine(day_date, datetime.min.time()))
+                day_end = timezone.make_aware(datetime.combine(day_date, datetime.max.time()))
                 
                 day_deliveries = Commande.objects.filter(
                     livreur=livreur,
@@ -381,8 +430,8 @@ class LivreurViewSet(viewsets.ViewSet):
             avg_delivery_time_result = Commande.objects.filter(
                 livreur=livreur,
                 status='LIVREE',
-                delivery_time_minutes__isnull=False
-            ).aggregate(avg_time=Avg('delivery_time_minutes'))
+                estimated_duration_minutes__isnull=False
+            ).aggregate(avg_time=Avg('estimated_duration_minutes'))
             avg_delivery_time = int(avg_delivery_time_result['avg_time'] or 22)
             
             data = {

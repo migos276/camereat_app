@@ -1,24 +1,142 @@
 "use client"
 
-import React, { useEffect } from "react"
-import { View, StyleSheet, Text, TouchableOpacity, FlatList, RefreshControl, ActivityIndicator } from "react-native"
+import React, { useEffect, useCallback } from "react"
+import { View, StyleSheet, Text, TouchableOpacity, FlatList, RefreshControl, ActivityIndicator, Alert } from "react-native"
+import * as Location from "expo-location"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
 import { MaterialIcons } from "@expo/vector-icons"
 import type { LivreurStackParamList } from "../../navigation/LivreurNavigator"
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/config"
 import { useAppDispatch, useAppSelector } from "../../hooks"
-import { getAvailableDeliveries, acceptDelivery } from "../../redux/slices/livreurSlice"
+import { getAvailableDeliveries, acceptDelivery, updatePosition, clearError } from "../../redux/slices/livreurSlice"
 import type { Delivery } from "../../types"
 
 type Props = NativeStackScreenProps<LivreurStackParamList, "Deliveries">
 
+const toCurrencyNumber = (value: unknown): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const getDisplayPrice = (item: any): number =>
+  toCurrencyNumber(
+    item?.estimated_pay ??
+      item?.total_amount ??
+      item?.amount ??
+      item?.delivery_fee ??
+      item?.products_amount
+  )
+
+const hasPositiveValue = (value: unknown): boolean => toCurrencyNumber(value) > 0
+
+const getClientName = (item: any): string =>
+  item?.client_name || item?.customer?.name || item?.order?.client_name || "Client"
+
+const getDeliveryAddress = (item: any): string => {
+  const rawAddress =
+    item?.client_delivery_address ||
+    item?.delivery_address_text ||
+    item?.delivery_address ||
+    item?.order?.client_delivery_address ||
+    item?.order?.delivery_address_text
+
+  if (!rawAddress) return "Adresse non disponible"
+  if (typeof rawAddress === "string") return rawAddress
+  if (typeof rawAddress === "object") {
+    return rawAddress.street || rawAddress.label || rawAddress.address || "Adresse non disponible"
+  }
+  return "Adresse non disponible"
+}
+
 const DeliveriesScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch()
-  const { availableDeliveries, isLoading } = useAppSelector((state) => state.livreur)
+  const { availableDeliveries, isLoading, error } = useAppSelector((state) => state.livreur)
+
+  const requestLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission refusée",
+          "Vous devez autoriser l'accès à votre position GPS pour voir les commandes disponibles."
+        )
+        return
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      })
+
+      const { latitude, longitude } = location.coords
+      await dispatch(updatePosition({ latitude, longitude })).unwrap()
+
+      setTimeout(() => {
+        dispatch(getAvailableDeliveries())
+      }, 500)
+      
+    } catch (err: any) {
+      console.error("Error getting location:", err)
+      Alert.alert(
+        "Erreur de localisation",
+        "Impossible d'obtenir votre position. Veuillez vérifier que GPS est activé."
+      )
+    }
+  }, [dispatch])
+
+  const handleError = (errorData: any) => {
+    const detail = errorData?.detail || "Une erreur est survenue"
+    const code = errorData?.code || errorData?.error
+
+    if (code === "position_not_set" || code === "POSITION_NOT_SET") {
+      Alert.alert(
+        "Position GPS requise",
+        "Vous devez définir votre position GPS pour voir les commandes disponibles.",
+        [
+          { 
+            text: "Mettre à jour la position", 
+            onPress: () => requestLocation()
+          },
+          { 
+            text: "Annuler", 
+            style: "cancel" 
+          }
+        ]
+      )
+    }
+  }
+
+  const loadDeliveries = useCallback(async () => {
+    // First try to get location and update position before fetching deliveries
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      
+      if (status === "granted") {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        })
+        const { latitude, longitude } = location.coords
+        
+        // Update position in Redux
+        await dispatch(updatePosition({ latitude, longitude }))
+      }
+    } catch (err: any) {
+      console.log("Could not get location, will try without it:", err)
+    }
+    
+    await dispatch(getAvailableDeliveries())
+  }, [dispatch])
 
   useEffect(() => {
-    dispatch(getAvailableDeliveries())
-  }, [dispatch])
+    loadDeliveries()
+  }, [loadDeliveries])
+
+  useEffect(() => {
+    if (error) {
+      handleError(error)
+      dispatch(clearError())
+    }
+  }, [error, dispatch])
 
   const onRefresh = () => {
     dispatch(getAvailableDeliveries())
@@ -41,7 +159,7 @@ const DeliveriesScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.deliveryHeader}>
         <View style={styles.restaurantInfo}>
           <MaterialIcons name="restaurant" size={20} color={COLORS.primary} />
-          <Text style={styles.restaurantName}>{item.restaurant?.name || "Restaurant"}</Text>
+          <Text style={styles.restaurantName}>{(item as any).restaurant_name || item.restaurant?.name || "Restaurant"}</Text>
         </View>
         <Text style={styles.deliveryTime}>{item.created_at || "Just now"}</Text>
       </View>
@@ -49,13 +167,13 @@ const DeliveriesScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.deliveryBody}>
         <View style={styles.infoRow}>
           <MaterialIcons name="person" size={16} color={COLORS.gray} />
-          <Text style={styles.infoText}>{item.customer?.name || "Customer"}</Text>
+          <Text style={styles.infoText}>{getClientName(item)}</Text>
         </View>
         <View style={styles.infoRow}>
           <MaterialIcons name="location-on" size={16} color={COLORS.gray} />
-          <Text style={styles.infoText}>{item.delivery_address || "Address"}</Text>
+          <Text style={styles.infoText}>{getDeliveryAddress(item)}</Text>
         </View>
-        {item.distance && (
+        {hasPositiveValue((item as any).distance) && (
           <View style={styles.infoRow}>
             <MaterialIcons name="local-shipping" size={16} color={COLORS.gray} />
             <Text style={styles.infoText}>{item.distance} km</Text>
@@ -65,9 +183,9 @@ const DeliveriesScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.deliveryFooter}>
         <View style={styles.earningsBadge}>
-          <Text style={styles.earningsText}>{item.delivery_fee?.toFixed(2) || "0.00"} FCFA</Text>
+          <Text style={styles.earningsText}>{getDisplayPrice(item).toFixed(2)} FCFA</Text>
         </View>
-        {item.items_count && (
+        {hasPositiveValue((item as any).items_count) && (
           <View style={styles.itemsBadge}>
             <Text style={styles.itemsText}>{item.items_count} items</Text>
           </View>

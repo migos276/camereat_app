@@ -4,6 +4,8 @@ import type { Livreur, Delivery } from "../types"
 
 const api = axiosService.getInstance()
 
+const normalizeCoordinate = (value: number): number => Number(value.toFixed(6))
+
 export const livreurService = {
   async getProfile(): Promise<Livreur> {
     const response = await api.get<Livreur>(ENDPOINTS.LIVREURS_PROFILE)
@@ -16,14 +18,22 @@ export const livreurService = {
   },
 
   async getNearbyDeliveries(latitude: number, longitude: number, radiusKm = 10): Promise<Delivery[]> {
+    const safeLatitude = normalizeCoordinate(latitude)
+    const safeLongitude = normalizeCoordinate(longitude)
     const response = await api.get<Delivery[]>(
-      `${ENDPOINTS.LIVREURS_NEARBY_DELIVERIES}?latitude=${latitude}&longitude=${longitude}&radius=${radiusKm}`,
+      `${ENDPOINTS.LIVREURS_NEARBY_DELIVERIES}?latitude=${safeLatitude}&longitude=${safeLongitude}&radius=${radiusKm}`,
     )
     return response.data
   },
 
-  async getAvailableDeliveries(): Promise<Delivery[]> {
-    const response = await api.get<Delivery[]>(ENDPOINTS.LIVREURS_AVAILABLE_DELIVERIES)
+  async getAvailableDeliveries(latitude?: number, longitude?: number): Promise<Delivery[]> {
+    let url = ENDPOINTS.LIVREURS_AVAILABLE_DELIVERIES
+    if (latitude !== undefined && longitude !== undefined) {
+      const safeLatitude = normalizeCoordinate(latitude)
+      const safeLongitude = normalizeCoordinate(longitude)
+      url += `?latitude=${safeLatitude}&longitude=${safeLongitude}`
+    }
+    const response = await api.get<Delivery[]>(url)
     return response.data
   },
 
@@ -34,14 +44,21 @@ export const livreurService = {
     return response.data
   },
 
+  async getActiveDelivery(): Promise<Delivery> {
+    const response = await api.get<Delivery>(ENDPOINTS.LIVREURS_ACTIVE_DELIVERY)
+    return response.data
+  },
+
   async rejectDelivery(id: string, reason?: string): Promise<void> {
     await api.post(ENDPOINTS.LIVREURS_REJECT_DELIVERY(id), { reason })
   },
 
   async updatePosition(latitude: number, longitude: number): Promise<void> {
+    const safeLatitude = normalizeCoordinate(latitude)
+    const safeLongitude = normalizeCoordinate(longitude)
     await api.post(ENDPOINTS.LIVREURS_UPDATE_POSITION, {
-      latitude,
-      longitude,
+      latitude: safeLatitude,
+      longitude: safeLongitude,
     })
   },
 

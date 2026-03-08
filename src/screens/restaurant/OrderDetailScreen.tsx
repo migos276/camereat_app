@@ -24,6 +24,7 @@ interface RestaurantOrderDetail {
   numero?: string
   status?: string
   client_name?: string
+  client_phone?: string
   delivery_address_text?: string
   estimated_duration_minutes?: number
   products_amount?: number | string
@@ -278,7 +279,7 @@ const OrderDetailScreen: React.FC<Props> = ({ route }) => {
           </View>
           <View style={styles.infoRow}>
             <MaterialIcons name="phone" size={20} color={COLORS.primary} />
-            <Text style={styles.infoText}>{order.payment_phone || "Non renseigné"}</Text>
+            <Text style={styles.infoText}>{order.client_phone || order.payment_phone || "Non renseigné"}</Text>
           </View>
           <View style={styles.infoRow}>
             <MaterialIcons name="location-on" size={20} color={COLORS.primary} />

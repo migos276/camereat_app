@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useCallback } from "react"
+import React, { useEffect, useCallback, useRef } from "react"
 import {
   View,
   FlatList,
@@ -10,12 +10,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
 } from "react-native"
+import * as Location from "expo-location"
 import { MaterialIcons } from "@expo/vector-icons"
 import { Header, Card } from "../../components"
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/config"
 import { useAppDispatch, useAppSelector } from "../../hooks"
-import { getAvailableDeliveries, clearError, acceptDelivery } from "../../redux/slices/livreurSlice"
+import { getAvailableDeliveries, clearError, acceptDelivery, updatePosition } from "../../redux/slices/livreurSlice"
 import type { Delivery } from "../../types"
 
 // Define Livreur specific colors
@@ -48,16 +50,75 @@ interface DeliveryOrder {
   restaurant_address?: string
 }
 
+const toCurrencyNumber = (value: unknown): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 export const AvailableOrdersScreen: React.FC<any> = ({ navigation }) => {
   const dispatch = useAppDispatch()
   const { availableDeliveries, isLoading, error } = useAppSelector((state) => state.livreur)
 
   const loadDeliveries = useCallback(async () => {
+    // First try to get location and update position before fetching deliveries
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      
+      if (status === "granted") {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        })
+        const { latitude, longitude } = location.coords
+        
+        // Update position in Redux (this will also be sent with the request)
+        await dispatch(updatePosition({ latitude, longitude }))
+      }
+    } catch (err: any) {
+      console.log("Could not get location, will try without it:", err)
+    }
+    
     const result = await dispatch(getAvailableDeliveries())
     if (getAvailableDeliveries.rejected.match(result)) {
       // Error is already stored in state, will be handled by useEffect
     }
   }, [dispatch])
+
+  const requestLocation = useCallback(async () => {
+    try {
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission refusée",
+          "Vous devez autoriser l'accès à votre position GPS pour voir les commandes disponibles."
+        )
+        return
+      }
+
+      // Get current location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      })
+
+      const { latitude, longitude } = location.coords
+
+      // Update position in Redux and send to backend
+      await dispatch(updatePosition({ latitude, longitude })).unwrap()
+
+      // After updating position, reload available deliveries
+      setTimeout(() => {
+        loadDeliveries()
+      }, 500)
+      
+    } catch (err: any) {
+      console.error("Error getting location:", err)
+      Alert.alert(
+        "Erreur de localisation",
+        "Impossible d'obtenir votre position. Veuillez vérifier que GPS est activé sur votre appareil."
+      )
+    }
+  }, [dispatch, loadDeliveries])
 
   useEffect(() => {
     loadDeliveries()
@@ -132,6 +193,28 @@ export const AvailableOrdersScreen: React.FC<any> = ({ navigation }) => {
         )
         break
 
+      case "position_not_set":
+      case "POSITION_NOT_SET":
+        Alert.alert(
+          "Position GPS requise",
+          "Vous devez définir votre position GPS pour voir les commandes disponibles. Cliquez ci-dessous pour mettre à jour votre position.",
+          [
+            { 
+              text: "Mettre à jour la position", 
+              onPress: () => {
+                // Navigate to a position update screen or request GPS
+                // For now, we'll try to get the current position
+                requestLocation()
+              }
+            },
+            { 
+              text: "Annuler", 
+              style: "cancel" 
+            }
+          ]
+        )
+        break
+
       default:
         Alert.alert(
           "Erreur",
@@ -147,7 +230,7 @@ export const AvailableOrdersScreen: React.FC<any> = ({ navigation }) => {
       Alert.alert(
         "Commande acceptée",
         "La commande a été ajoutée à vos livraisons actives.",
-        [{ text: "OK", onPress: () => navigation.navigate("ActiveDelivery", { orderId }) }]
+        [{ text: "OK", onPress: () => navigation.navigate("ActiveDelivery", { id: orderId }) }]
       )
     } catch (err: any) {
       Alert.alert(
@@ -159,7 +242,7 @@ export const AvailableOrdersScreen: React.FC<any> = ({ navigation }) => {
 
   const renderOrder = ({ item }: { item: any }) => {
     const distance = item.distance || "N/A"
-    const pay = item.estimated_pay || item.amount || 0
+    const pay = toCurrencyNumber(item.estimated_pay ?? item.amount ?? item.delivery_fee)
     const pickupTime = item.pickup_time || "N/A"
     const deliveryTime = item.delivery_time || "N/A"
     const itemCount = item.item_count || 0
@@ -188,7 +271,7 @@ export const AvailableOrdersScreen: React.FC<any> = ({ navigation }) => {
           </View>
         </View>
 
-        {item.client_name && (
+        {Boolean(item.client_name) && (
           <View style={styles.clientInfo}>
             <MaterialIcons name="person" size={14} color={LIVREUR_COLORS.TEXT_SECONDARY} />
             <Text style={styles.clientText}>{item.client_name}</Text>

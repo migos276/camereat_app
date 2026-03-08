@@ -7,6 +7,7 @@ import { MaterialIcons } from "@expo/vector-icons"
 import { Header, Card, Button, TextInput } from "../../components"
 import { COLORS, TYPOGRAPHY } from "../../constants/config"
 import { orderService } from "../../services/order-service"
+import { geolocationService } from "../../services/geolocation-service"
 import { useSelector } from "react-redux"
 import type { RootState } from "../../redux/store"
 
@@ -40,7 +41,13 @@ const PAYMENT_METHODS = [
 export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
   const [selectedPayment, setSelectedPayment] = useState("ORANGE_MONEY")
   const [phoneNumber, setPhoneNumber] = useState("")
+  const [clientName, setClientName] = useState("")
   const [specialInstructions, setSpecialInstructions] = useState("")
+  const [deliveryPreference, setDeliveryPreference] = useState<"DES_QUE_PRETE" | "PLANIFIEE">("DES_QUE_PRETE")
+  const [scheduledTime, setScheduledTime] = useState("")
+  const [deliveryAddressText, setDeliveryAddressText] = useState("")
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | undefined>(undefined)
+  const [isLocating, setIsLocating] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isCheckingPayment, setIsCheckingPayment] = useState(false)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -49,6 +56,24 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
 
   // Get cart data from Redux
   const cart = useSelector((state: RootState) => state.cart)
+  const authUser = useSelector((state: RootState) => state.auth.user)
+
+  useEffect(() => {
+    const fullName = `${authUser?.first_name || ""} ${authUser?.last_name || ""}`.trim()
+    setClientName(fullName || authUser?.full_name || "")
+  }, [authUser])
+
+  useEffect(() => {
+    const initialAddress = [
+      cart?.deliveryAddress?.street,
+      cart?.deliveryAddress?.city,
+      cart?.deliveryAddress?.country || "Cameroun",
+    ]
+      .filter(Boolean)
+      .join(", ")
+    setDeliveryAddressText(initialAddress || "")
+    setDeliveryAddressId(cart?.deliveryAddress?.id ? String(cart.deliveryAddress.id) : undefined)
+  }, [cart?.deliveryAddress])
 
   // Calculate totals - cart items have product property
   const subtotal = cart?.items?.reduce((sum: number, item: any) => {
@@ -149,6 +174,49 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
     return cleaned
   }
 
+  const toScheduledDeliveryISO = (timeValue: string): string | null => {
+    const trimmed = timeValue.trim()
+    if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(trimmed)) {
+      return null
+    }
+    const [hourStr, minuteStr] = trimmed.split(":")
+    const now = new Date()
+    const target = new Date(now)
+    target.setHours(Number(hourStr), Number(minuteStr), 0, 0)
+    if (target <= now) {
+      target.setDate(target.getDate() + 1)
+    }
+    return target.toISOString()
+  }
+
+  const handleUseCurrentLocation = async () => {
+    setIsLocating(true)
+    try {
+      const hasPermission = await geolocationService.requestLocationPermission()
+      if (!hasPermission) {
+        Alert.alert("Permission requise", "Autorisez l'accès à la localisation pour utiliser votre position actuelle.")
+        return
+      }
+
+      const location = await geolocationService.getCurrentLocation()
+      if (!location) {
+        Alert.alert("Erreur", "Impossible de recuperer votre position actuelle.")
+        return
+      }
+
+      const { latitude, longitude } = location.coords
+      const readableAddress = await geolocationService.getAddressFromCoordinates(latitude, longitude)
+      const fallbackAddress = `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`
+      setDeliveryAddressText(readableAddress && readableAddress !== "Unknown Location" ? readableAddress : fallbackAddress)
+      setDeliveryAddressId(undefined)
+    } catch (error) {
+      console.error("Location error:", error)
+      Alert.alert("Erreur", "Impossible d'utiliser la position actuelle.")
+    } finally {
+      setIsLocating(false)
+    }
+  }
+
   const handlePlaceOrder = async () => {
     setPaymentError(null)
 
@@ -163,6 +231,21 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
         Alert.alert("Erreur", phoneValidation.message || "Veuillez entrer un numéro valide (ex: 6XXXXXXXX)")
         return
       }
+    }
+
+    let requestedDeliveryTime: string | undefined = undefined
+    if (deliveryPreference === "PLANIFIEE") {
+      const isoTime = toScheduledDeliveryISO(scheduledTime)
+      if (!isoTime) {
+        Alert.alert("Erreur", "Veuillez entrer une heure valide au format HH:MM (ex: 18:30)")
+        return
+      }
+      requestedDeliveryTime = isoTime
+    }
+
+    if (!deliveryAddressText.trim()) {
+      Alert.alert("Erreur", "Veuillez saisir une adresse de livraison ou utiliser votre position actuelle.")
+      return
     }
 
     setIsLoading(true)
@@ -188,18 +271,17 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
           product_id: String(item.product?.id),
           quantity: item.quantity
         })),
+        client_name: clientName?.trim() || undefined,
+        client_phone: authUser?.phone || undefined,
+        delivery_preference: deliveryPreference,
+        requested_delivery_time: requestedDeliveryTime,
         payment_mode: getPaymentMode(),
         payment_phone: isMobileMoney() ? formatPhoneNumber(phoneNumber) : undefined,
         total_amount: total,
         special_instructions: specialInstructions,
-        delivery_address_text: [
-          cart?.deliveryAddress?.street,
-          cart?.deliveryAddress?.city,
-          cart?.deliveryAddress?.country || "Cameroun",
-        ]
-          .filter(Boolean)
-          .join(", "),
+        delivery_address_text: deliveryAddressText.trim(),
       }
+      orderData.client_delivery_address = orderData.delivery_address_text
       
       // Add either restaurant_id or supermarket_id
       if (restaurantId) {
@@ -210,8 +292,8 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
       }
       
       // Add delivery address if available
-      if (cart?.deliveryAddress?.id) {
-        orderData.delivery_address_id = cart.deliveryAddress.id
+      if (deliveryAddressId) {
+        orderData.delivery_address_id = deliveryAddressId
       }
 
       console.log("Creating order with data:", orderData)
@@ -361,16 +443,38 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
           </View>
           <Card style={styles.addressCard}>
             <Text style={styles.addressTitle}>
-              {cart?.deliveryAddress?.label || "Domicile"}
+              {cart?.deliveryAddress?.label || "Adresse de livraison"}
             </Text>
-            <Text style={styles.addressText}>
-              {cart?.deliveryAddress?.street || "123 Rue Principale"}, {" "}
-              {cart?.deliveryAddress?.city || "Yaoundé"}, {"Cameroun"}
-            </Text>
+            <TextInput
+              placeholder="Entrez votre adresse de livraison"
+              value={deliveryAddressText}
+              onChangeText={(text) => {
+                setDeliveryAddressText(text)
+                setDeliveryAddressId(undefined)
+              }}
+              multiline
+              numberOfLines={2}
+            />
           </Card>
-          <TouchableOpacity style={styles.changeButton}>
-            <Text style={styles.changeButtonText}>Changer l'adresse</Text>
+          <TouchableOpacity style={styles.changeButton} onPress={handleUseCurrentLocation} disabled={isLocating}>
+            {isLocating ? (
+              <ActivityIndicator size="small" color={COLORS.CLIENT_PRIMARY} />
+            ) : (
+              <Text style={styles.changeButtonText}>Utiliser ma position actuelle</Text>
+            )}
           </TouchableOpacity>
+        </Card>
+
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="person" size={20} color={COLORS.CLIENT_PRIMARY} />
+            <Text style={styles.sectionTitle}>Nom du client</Text>
+          </View>
+          <TextInput
+            placeholder="Nom complet"
+            value={clientName}
+            onChangeText={setClientName}
+          />
         </Card>
 
         <Card style={styles.section}>
@@ -379,13 +483,32 @@ export const CheckoutScreen: React.FC<any> = ({ navigation, route }) => {
             <Text style={styles.sectionTitle}>Heure de livraison</Text>
           </View>
           <View style={styles.timeOptions}>
-            <TouchableOpacity style={[styles.timeOption, styles.timeOptionSelected]}>
-              <Text style={styles.timeOptionText}>Dès que possible (25-35 min)</Text>
+            <TouchableOpacity
+              style={[styles.timeOption, deliveryPreference === "DES_QUE_PRETE" && styles.timeOptionSelected]}
+              onPress={() => setDeliveryPreference("DES_QUE_PRETE")}
+            >
+              <Text style={[styles.timeOptionText, deliveryPreference === "DES_QUE_PRETE" && styles.timeOptionTextSelected]}>
+                Dès que prête
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.timeOption}>
-              <Text style={styles.timeOptionText}>Planifier plus tard</Text>
+            <TouchableOpacity
+              style={[styles.timeOption, deliveryPreference === "PLANIFIEE" && styles.timeOptionSelected]}
+              onPress={() => setDeliveryPreference("PLANIFIEE")}
+            >
+              <Text style={[styles.timeOptionText, deliveryPreference === "PLANIFIEE" && styles.timeOptionTextSelected]}>
+                Planifier une heure
+              </Text>
             </TouchableOpacity>
           </View>
+          {deliveryPreference === "PLANIFIEE" && (
+            <View style={{ marginTop: 10 }}>
+              <TextInput
+                placeholder="Heure souhaitée (HH:MM)"
+                value={scheduledTime}
+                onChangeText={setScheduledTime}
+              />
+            </View>
+          )}
         </Card>
 
         {/* Payment Methods */}
@@ -623,6 +746,9 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body2,
     fontWeight: "600",
     color: COLORS.TEXT_PRIMARY,
+  },
+  timeOptionTextSelected: {
+    color: COLORS.WHITE,
   },
   paymentMethods: {
     flexDirection: "row",

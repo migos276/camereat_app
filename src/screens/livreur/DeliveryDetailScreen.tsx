@@ -11,6 +11,51 @@ import { acceptDelivery } from "../../redux/slices/livreurSlice"
 
 type Props = NativeStackScreenProps<LivreurStackParamList, "DeliveryDetail">
 
+const toNumber = (value: unknown, fallback = 0): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const getClientName = (delivery: any): string =>
+  delivery?.client_name || delivery?.customer?.name || delivery?.order?.client_name || "Client"
+
+const getDeliveryAddress = (delivery: any): string => {
+  const rawAddress =
+    delivery?.client_delivery_address ||
+    delivery?.delivery_address_text ||
+    delivery?.delivery_address ||
+    delivery?.order?.client_delivery_address ||
+    delivery?.order?.delivery_address_text
+
+  if (!rawAddress) return "Adresse non disponible"
+  if (typeof rawAddress === "string") return rawAddress
+  if (typeof rawAddress === "object") {
+    return rawAddress.street || rawAddress.label || rawAddress.address || "Adresse non disponible"
+  }
+  return "Adresse non disponible"
+}
+
+const getRestaurantAddress = (delivery: any): string => {
+  const rawAddress =
+    delivery?.restaurant_address ||
+    delivery?.pickup_address ||
+    delivery?.restaurant?.full_address ||
+    delivery?.restaurant?.address
+
+  if (!rawAddress) return "Adresse du restaurant non disponible"
+  if (typeof rawAddress === "string") return rawAddress
+  if (typeof rawAddress === "object") {
+    return rawAddress.street || rawAddress.label || rawAddress.address || "Adresse du restaurant non disponible"
+  }
+  return "Adresse du restaurant non disponible"
+}
+
+const getRestaurantName = (delivery: any): string =>
+  delivery?.restaurant_name ||
+  delivery?.restaurant?.commercial_name ||
+  delivery?.restaurant?.name ||
+  "Restaurant"
+
 const DeliveryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params
   const dispatch = useAppDispatch()
@@ -38,6 +83,13 @@ const DeliveryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     )
   }
 
+  const subtotal = toNumber((delivery as any).total ?? (delivery as any).products_amount)
+  const deliveryFee = toNumber((delivery as any).deliveryFee ?? (delivery as any).delivery_fee)
+  const clientName = getClientName(delivery)
+  const deliveryAddress = getDeliveryAddress(delivery)
+  const restaurantName = getRestaurantName(delivery)
+  const restaurantAddress = getRestaurantAddress(delivery)
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
@@ -45,11 +97,11 @@ const DeliveryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <MaterialIcons name="restaurant" size={20} color={COLORS.primary} />
-            <Text style={styles.infoText}>{delivery.restaurant?.name || "Restaurant"}</Text>
+            <Text style={styles.infoText}>{restaurantName}</Text>
           </View>
           <View style={styles.infoRow}>
             <MaterialIcons name="location-on" size={20} color={COLORS.gray} />
-            <Text style={styles.infoSubtext}>{delivery.pickup_address || "Pickup Address"}</Text>
+            <Text style={styles.infoSubtext}>{restaurantAddress}</Text>
           </View>
         </View>
       </View>
@@ -59,11 +111,11 @@ const DeliveryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <MaterialIcons name="person" size={20} color={COLORS.primary} />
-            <Text style={styles.infoText}>{delivery.customer?.name || "Customer"}</Text>
+            <Text style={styles.infoText}>{clientName}</Text>
           </View>
           <View style={styles.infoRow}>
             <MaterialIcons name="location-on" size={20} color={COLORS.gray} />
-            <Text style={styles.infoSubtext}>{delivery.delivery_address || "Delivery Address"}</Text>
+            <Text style={styles.infoSubtext}>{deliveryAddress}</Text>
           </View>
         </View>
       </View>
@@ -73,23 +125,25 @@ const DeliveryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.infoCard}>
           {delivery.items.map((item, index) => (
             <View key={index} style={styles.itemRow}>
-              <Text style={styles.itemQuantity}>{item.quantity}x</Text>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>{(item.price * item.quantity).toFixed(2)} FCFA</Text>
+              <Text style={styles.itemQuantity}>{toNumber((item as any).quantity, 1)}x</Text>
+              <Text style={styles.itemName}>{(item as any).name || (item as any).produit?.name || "Article"}</Text>
+              <Text style={styles.itemPrice}>
+                {toNumber((item as any).line_total, toNumber((item as any).price) * toNumber((item as any).quantity, 1)).toFixed(2)} FCFA
+              </Text>
             </View>
           ))}
           <View style={styles.divider} />
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>{delivery.total.toFixed(2)} FCFA</Text>
+            <Text style={styles.totalValue}>{subtotal.toFixed(2)} FCFA</Text>
           </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Delivery Fee</Text>
-            <Text style={styles.totalValue}>{delivery.deliveryFee.toFixed(2)} FCFA</Text>
+            <Text style={styles.totalValue}>{deliveryFee.toFixed(2)} FCFA</Text>
           </View>
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Total Earnings</Text>
-            <Text style={styles.grandTotalValue}>{(delivery.total + delivery.deliveryFee).toFixed(2)} FCFA</Text>
+            <Text style={styles.grandTotalValue}>{(subtotal + deliveryFee).toFixed(2)} FCFA</Text>
           </View>
         </View>
       </View>

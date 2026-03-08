@@ -254,7 +254,7 @@ export const OrderTrackingScreen: React.FC<{ navigation: any; route: { params?: 
         {/* Delivery Info Card */}
         <View style={styles.deliveryCard}>
           <Text style={styles.deliveryTitle}>Delivery Information</Text>
-          {tracking?.estimated_duration_minutes && (
+          {tracking?.estimated_duration_minutes != null && (
             <View style={styles.deliveryTimeRow}>
               <MaterialIcons name="schedule" size={20} color={COLORS.primary} />
               <Text style={styles.deliveryTimeText}>
@@ -271,7 +271,7 @@ export const OrderTrackingScreen: React.FC<{ navigation: any; route: { params?: 
                 <Text style={styles.deliveryValue}>{order.delivery_address_text || "Address not specified"}</Text>
               </View>
             </View>
-            {tracking?.distance_km && (
+            {tracking?.distance_km != null && (
               <View style={styles.deliveryDetail}>
                 <MaterialIcons name="directions-car" size={20} color={COLORS.primary} />
                 <View style={styles.deliveryDetailContent}>
@@ -678,4 +678,3 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
   },
 })
-

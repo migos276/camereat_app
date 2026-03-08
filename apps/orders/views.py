@@ -54,6 +54,11 @@ class CommandeViewSet(viewsets.ModelViewSet):
         # If user is a restaurant owner, return orders for their restaurant
         if hasattr(user, 'restaurant'):
             return Commande.objects.filter(restaurant=user.restaurant)
+
+        # If user is a delivery person, return orders assigned to them.
+        # This is required for actions like `marquer-livree`.
+        if hasattr(user, 'livreur'):
+            return Commande.objects.filter(livreur=user.livreur)
         
         # Default: return empty queryset
         return Commande.objects.none()
@@ -64,6 +69,7 @@ class CommandeViewSet(viewsets.ModelViewSet):
             payment_mode = serializer.validated_data.get('payment_mode')
             payment_phone = serializer.validated_data.get('payment_phone')
             total_amount = serializer.validated_data.get('total_amount')
+            phone = payment_phone
 
             campay_reference = None
             operator = None

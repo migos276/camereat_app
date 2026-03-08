@@ -1,17 +1,69 @@
 "use client"
 
-import type React from "react"
-import { View, ScrollView, StyleSheet, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native"
+import React, { useCallback, useEffect } from "react"
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { Header, Card, Button, ProgressBar } from "../../components"
 import { COLORS, TYPOGRAPHY } from "../../constants/config"
 import { useAppDispatch, useAppSelector } from "../../hooks"
-import { updateDeliveryStatus } from "../../redux/slices/livreurSlice"
+import { getActiveDelivery, updateDeliveryStatus } from "../../redux/slices/livreurSlice"
 
 export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
   const dispatch = useAppDispatch()
   const { activeDelivery, isLoading } = useAppSelector((state) => state.livreur)
   const deliveryId = route.params?.id
+
+  const toNumber = (value: unknown, fallback = 0): number => {
+    const parsed = typeof value === "number" ? value : Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  const toMoney = (value: unknown): string => `${toNumber(value).toFixed(2)} FCFA`
+
+  const formatDateTime = (value: unknown): string => {
+    if (!value || typeof value !== "string") return "N/A"
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return "N/A"
+    return date.toLocaleString("fr-FR")
+  }
+
+  const formatDeliveryPreference = (value: unknown): string => {
+    if (value === "PLANIFIEE") return "Planifiee"
+    if (value === "DES_QUE_PRETE") return "Des que prete"
+    return "N/A"
+  }
+
+  const getClientName = (delivery: any): string =>
+    delivery?.client_name || delivery?.customer?.name || "Client"
+
+  const getClientPhone = (delivery: any): string =>
+    delivery?.client_phone || delivery?.customer?.phone || "N/A"
+
+  const getClientInitials = (name: string): string => {
+    const parts = name.trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return "CL"
+    return `${parts[0][0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase()
+  }
+
+  const getDeliveryAddress = (delivery: any): string => {
+    const rawAddress =
+      delivery?.client_delivery_address ||
+      delivery?.delivery_address_text ||
+      delivery?.delivery_address ||
+      delivery?.customer?.address
+    if (!rawAddress) return "Adresse non disponible"
+    if (typeof rawAddress === "string") return rawAddress
+    if (typeof rawAddress === "object") return rawAddress.street || rawAddress.label || rawAddress.address || "Adresse non disponible"
+    return "Adresse non disponible"
+  }
+
+  const loadActiveDelivery = useCallback(async () => {
+    await dispatch(getActiveDelivery())
+  }, [dispatch])
+
+  useEffect(() => {
+    loadActiveDelivery()
+  }, [loadActiveDelivery, deliveryId])
 
   const getProgress = () => {
     if (!activeDelivery) return 0
@@ -31,15 +83,16 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
   }
 
   const handleUpdateStatus = async (newStatus: string) => {
+    if (!activeDelivery?.id) return
     try {
-      await dispatch(updateDeliveryStatus({ id: activeDelivery!.id, status: newStatus })).unwrap()
+      await dispatch(updateDeliveryStatus({ id: activeDelivery.id, status: newStatus })).unwrap()
       if (newStatus === "LIVREE" || newStatus.toLowerCase() === "delivered") {
-        Alert.alert("Success", "Delivery completed successfully!", [
+        Alert.alert("Succès", "Livraison marquée comme effectuée.", [
           { text: "OK", onPress: () => navigation.navigate("LivreurHome") },
         ])
       }
-    } catch (error) {
-      Alert.alert("Error", "Failed to update delivery status")
+    } catch (error: any) {
+      Alert.alert("Erreur", error?.detail || "Impossible de mettre à jour le statut de livraison.")
     }
   }
 
@@ -55,13 +108,23 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center", padding: 20 }]}>
         <MaterialIcons name="error-outline" size={64} color={COLORS.gray} />
-        <Text style={{ ...TYPOGRAPHY.heading3, marginTop: 16, textAlign: "center" }}>No active delivery found</Text>
-        <Button title="Go Back" onPress={() => navigation.goBack()} style={{ marginTop: 24 }} />
+        <Text style={{ ...TYPOGRAPHY.heading3, marginTop: 16, textAlign: "center" }}>Aucune livraison active trouvée</Text>
+        <Button title="Actualiser" onPress={loadActiveDelivery} style={{ marginTop: 24 }} />
       </View>
     )
   }
 
-  const deliveryRef = activeDelivery.order_id || String(activeDelivery.id || "").slice(0, 8)
+  const data = activeDelivery as any
+  const deliveryRef = data.numero || String(activeDelivery.id || "").slice(0, 8)
+  const clientName = getClientName(activeDelivery)
+  const clientPhone = getClientPhone(activeDelivery)
+  const clientInitials = getClientInitials(clientName)
+  const deliveryAddress = getDeliveryAddress(activeDelivery)
+  const restaurantName = data.restaurant_name || activeDelivery.restaurant?.name || "Restaurant"
+  const pickupAddress = data.restaurant_address || data.pickup_address || "Point de retrait non renseigne"
+  const distanceText = `${toNumber(data.distance_km ?? data.distance, 0).toFixed(2)} km`
+  const etaText = `${toNumber(data.estimated_duration_minutes ?? data.estimatedTime, 0)} min`
+  const items = Array.isArray(data.items) ? data.items : []
 
   return (
     <View style={styles.container}>
@@ -72,15 +135,19 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
         userType="livreur"
       />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={loadActiveDelivery} />}
+      >
         <Card style={styles.restaurantCard}>
           <View style={styles.restaurantHeader}>
             <View style={styles.restaurantAvatar}>
               <MaterialIcons name="restaurant" size={32} color={COLORS.WHITE} />
             </View>
             <View style={styles.restaurantInfo}>
-              <Text style={styles.restaurantName}>{activeDelivery.restaurant?.name || "Restaurant"}</Text>
-              <Text style={styles.restaurantAddress}>{activeDelivery.pickup_address || "Pickup Address"}</Text>
+              <Text style={styles.restaurantName}>{restaurantName}</Text>
+              <Text style={styles.restaurantAddress}>{pickupAddress}</Text>
             </View>
             {activeDelivery.restaurant?.phone && (
               <TouchableOpacity>
@@ -125,13 +192,13 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
         <Card style={styles.customerCard}>
           <View style={styles.customerHeader}>
             <View style={styles.customerAvatar}>
-              <Text style={styles.customerInitials}>{activeDelivery.customer?.initials || "JD"}</Text>
+              <Text style={styles.customerInitials}>{clientInitials}</Text>
             </View>
             <View style={styles.customerInfo}>
-              <Text style={styles.customerName}>{activeDelivery.customer?.name || "John Doe"}</Text>
-              <Text style={styles.customerPhone}>{activeDelivery.customer?.phone || "+1 (555) 123-4567"}</Text>
+              <Text style={styles.customerName}>{clientName}</Text>
+              <Text style={styles.customerPhone}>{clientPhone}</Text>
             </View>
-            {activeDelivery.customer?.phone && (
+            {clientPhone !== "N/A" && (
               <TouchableOpacity>
                 <MaterialIcons name="call" size={24} color={COLORS.LIVREUR_PRIMARY} />
               </TouchableOpacity>
@@ -142,23 +209,100 @@ export const ActiveDeliveryScreen: React.FC<any> = ({ navigation, route }) => {
             <MaterialIcons name="location-on" size={20} color={COLORS.LIVREUR_PRIMARY} />
             <View style={styles.addressContent}>
               <Text style={styles.addressLabel}>Delivery Address</Text>
-              <Text style={styles.addressText}>
-                {activeDelivery.delivery_address || "123 Main Street, New York, NY 10001"}
-              </Text>
+              <Text style={styles.addressText}>{deliveryAddress}</Text>
             </View>
           </View>
         </Card>
 
         <Card style={styles.orderItemsCard}>
-          <Text style={styles.orderItemsTitle}>Order Items</Text>
-          {activeDelivery.items.map((item, idx) => (
+          <Text style={styles.orderItemsTitle}>Articles</Text>
+          {items.map((item, idx) => (
             <View key={idx} style={styles.orderItem}>
               <View style={styles.orderItemQty}>
                 <Text style={styles.orderItemQtyText}>x{(item as any).quantity || (item as any).qty || 1}</Text>
               </View>
-              <Text style={styles.orderItemName}>{item.name}</Text>
+              <Text style={styles.orderItemName}>{(item as any).produit?.name || (item as any).name || "Article"}</Text>
+              <Text style={styles.orderItemPrice}>{toMoney((item as any).line_total)}</Text>
             </View>
           ))}
+        </Card>
+
+        <Card style={styles.orderItemsCard}>
+          <Text style={styles.orderItemsTitle}>Infos Livraison</Text>
+          <View style={styles.orderItem}>
+            <MaterialIcons name="map" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <Text style={styles.orderItemName}>{distanceText}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <MaterialIcons name="schedule" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <Text style={styles.orderItemName}>{etaText}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <MaterialIcons name="event" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <Text style={styles.orderItemName}>Preference: {formatDeliveryPreference(data.delivery_preference)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <MaterialIcons name="event-available" size={20} color={COLORS.LIVREUR_PRIMARY} />
+            <Text style={styles.orderItemName}>Planifiee: {formatDateTime(data.requested_delivery_time)}</Text>
+          </View>
+        </Card>
+
+        <Card style={styles.orderItemsCard}>
+          <Text style={styles.orderItemsTitle}>Montants</Text>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Produits</Text>
+            <Text style={styles.orderItemPrice}>{toMoney(data.products_amount)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Frais livraison</Text>
+            <Text style={styles.orderItemPrice}>{toMoney(data.delivery_fee)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Commission plateforme</Text>
+            <Text style={styles.orderItemPrice}>{toMoney(data.platform_commission)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Total</Text>
+            <Text style={styles.orderItemPrice}>{toMoney(data.total_amount)}</Text>
+          </View>
+        </Card>
+
+        <Card style={styles.orderItemsCard}>
+          <Text style={styles.orderItemsTitle}>Paiement</Text>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Mode: {data.payment_mode || "N/A"}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Statut: {data.payment_status || "N/A"}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Telephone: {data.payment_phone || "N/A"}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Reference: {data.campay_reference || "N/A"}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Operateur: {data.operator || "N/A"}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>USSD: {data.ussd_code || "N/A"}</Text>
+          </View>
+        </Card>
+
+        <Card style={styles.orderItemsCard}>
+          <Text style={styles.orderItemsTitle}>Dates et Notes</Text>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Creee: {formatDateTime(data.date_created || data.order_hour)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Acceptee: {formatDateTime(data.date_accepted)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Livree: {formatDateTime(data.date_delivered)}</Text>
+          </View>
+          <View style={styles.orderItem}>
+            <Text style={styles.orderItemName}>Instructions: {data.special_instructions || "Aucune"}</Text>
+          </View>
         </Card>
       </ScrollView>
     </View>
@@ -328,5 +472,10 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body2,
     fontWeight: "600",
     flex: 1,
+  },
+  orderItemPrice: {
+    ...TYPOGRAPHY.body2,
+    fontWeight: "700",
+    color: COLORS.LIVREUR_PRIMARY,
   },
 })

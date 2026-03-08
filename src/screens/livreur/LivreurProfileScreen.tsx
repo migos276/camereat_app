@@ -12,6 +12,11 @@ import { getLivreurProfile, clearProfile } from "../../redux/slices/livreurSlice
 
 type Props = NativeStackScreenProps<LivreurStackParamList, "LivreurProfile">
 
+const toNumber = (value: unknown, fallback = 0): number => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 const LivreurProfileScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch()
   const { profile, isLoading, error } = useAppSelector((state) => state.livreur)
@@ -72,7 +77,7 @@ const LivreurProfileScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.email}>{email}</Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{profile?.average_rating?.toFixed(1) || "N/A"}</Text>
+            <Text style={styles.statValue}>{toNumber(profile?.average_rating, 0).toFixed(1)}</Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
           <View style={styles.statDivider} />

@@ -81,6 +81,7 @@ export const ENDPOINTS = {
   LIVREURS_UPDATE_POSITION: "livreurs/update_position/",
   LIVREURS_UPDATE_STATUS: "livreurs/update_status/",
   LIVREURS_DELIVERY_STATUS: (id: string) => `livreurs/update_status/`,
+  LIVREURS_ACTIVE_DELIVERY: "livreurs/commande_active/",
   LIVREURS_STATS: "livreurs/statistiques/",
   LIVREURS_EARNINGS: "livreurs/revenus/",
 
